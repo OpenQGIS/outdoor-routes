@@ -2,6 +2,7 @@
  * Client-side parser for user-dropped KML / KMZ / GPX / GeoJSON route files.
  * Mirrors the cleaning & metric logic in scripts/ingest_kml.py without needing a backend.
  */
+import { inspectGeojson, inspectTrackSegments } from './kml-qc.js';
 
 const IGNORED_DATA_KEYS = /(photo|image|img|pic|picture|icon|avatar|thumb|media)/i;
 const IMG_URL_VALUE = /(\.(?:jpe?g|png|gif|webp|bmp)|^data:image\/)/i;
@@ -21,6 +22,8 @@ const KML_META_KEY_ALIASES = {
   季节: 'season',
   status: 'status',
   状态: 'status',
+  year: 'year',
+  年份: 'year',
   tags: 'tags',
   标签: 'tags',
   notes: 'notes',
@@ -150,10 +153,57 @@ export function parseKmlCoordinates(text) {
   return coords;
 }
 
-function parseGxCoordList(trackElem) {
+function parseGxTrackPoints(trackElem) {
+  const children = childElements(trackElem);
+  const whenElems = children.filter((c) => localTag(c) === 'when');
+  const coordElems = children.filter((c) => localTag(c) === 'coord');
+  const timestampMismatch = whenElems.length > 0 && whenElems.length !== coordElems.length;
+
+  const paired = [];
+  if (!whenElems.length) {
+    for (const c of coordElems) paired.push([c, null]);
+  } else if (whenElems.length === coordElems.length) {
+    for (let i = 0; i < coordElems.length; i++) {
+      const tStr = (whenElems[i].textContent || '').trim() || null;
+      paired.push([coordElems[i], tStr]);
+    }
+  } else {
+    let seenCoord = false;
+    let interleaved = false;
+    for (let idx = 0; idx < children.length; idx++) {
+      const t = localTag(children[idx]);
+      if (t === 'coord') {
+        seenCoord = true;
+      } else if (t === 'when' && seenCoord) {
+        if (children.slice(idx + 1).some((nxt) => localTag(nxt) === 'coord')) {
+          interleaved = true;
+          break;
+        }
+      }
+    }
+    if (interleaved) {
+      let pendingWhen = null;
+      for (const c of children) {
+        const t = localTag(c);
+        if (t === 'when') {
+          pendingWhen = (c.textContent || '').trim() || null;
+        } else if (t === 'coord') {
+          paired.push([c, pendingWhen]);
+          pendingWhen = null;
+        }
+      }
+    } else {
+      for (let i = 0; i < coordElems.length; i++) {
+        const w = i < whenElems.length ? whenElems[i] : null;
+        const tStr = w ? ((w.textContent || '').trim() || null) : null;
+        paired.push([coordElems[i], tStr]);
+      }
+    }
+  }
+
   const coords = [];
-  for (const child of childElements(trackElem)) {
-    if (localTag(child) !== 'coord') continue;
+  const times = [];
+  for (const [child, tStr] of paired) {
     const raw = (child.textContent || '').trim();
     if (!raw) continue;
     const parts = raw.split(/\s+/);
@@ -172,9 +222,12 @@ function parseGxCoordList(trackElem) {
     const prev = coords[coords.length - 1];
     if (!prev || prev[0] !== pos[0] || prev[1] !== pos[1]) {
       coords.push(pos);
+      times.push(tStr);
+    } else if (tStr !== null) {
+      times[times.length - 1] = tStr;
     }
   }
-  return coords;
+  return { coords, times, timestampMismatch };
 }
 
 function extractExtendedData(container) {
@@ -266,9 +319,43 @@ export function inferPoiKind(name, description, poiKinds = {}) {
   return 'waypoint';
 }
 
+const AUTO_PHOTO_META_LINE = /^(?:经度|纬度|海拔|时间|lon|lat|ele|time)\s*[:：]/i;
+const PHOTO_TELEMETRY_KEYS = new Set([
+  'type',
+  'serverid',
+  'postype',
+  'longitude',
+  'longtitude',
+  'latitude',
+  'altitude',
+  'speed',
+  'accuracy',
+  'time',
+  'timestamp',
+  'fileid',
+  'filesize',
+  'filetype'
+]);
+
+function isPurePhotoPlacemark(name, styleUrl, rawDesc, cleanDesc, extra) {
+  if (name) return false;
+  const meaningfulExtra = Object.keys(extra || {}).filter((k) => !PHOTO_TELEMETRY_KEYS.has(k.trim().toLowerCase()));
+  if (meaningfulExtra.length > 0) return false;
+  const styleL = String(styleUrl || '').toLowerCase();
+  const hasPhotoStyle = styleL.includes('picture') || styleL.includes('photo');
+  const hasRawImg = /<img\b|data:image\//i.test(String(rawDesc || ''));
+  if (!hasPhotoStyle && !hasRawImg) return false;
+  const meaningfulLines = String(cleanDesc || '')
+    .split(/\r?\n/)
+    .map((ln) => ln.trim())
+    .filter((ln) => ln && !AUTO_PHOTO_META_LINE.test(ln));
+  return meaningfulLines.length === 0;
+}
+
 function extractKmlFeatures(rootElem, routeId, category, poiKinds) {
   const routes = [];
   const pois = [];
+  const qcSegments = [];
   const polygonRings = [];
   let segIdx = 0;
 
@@ -277,12 +364,15 @@ function extractKmlFeatures(rootElem, routeId, category, poiKinds) {
     if (localTag(elem) !== 'Placemark') continue;
 
     const name = cleanDescription(directChildText(elem, 'name'));
-    const description = cleanDescription(directChildText(elem, 'description'));
+    const rawDesc = directChildText(elem, 'description');
+    const description = cleanDescription(rawDesc);
+    const styleUrl = directChildText(elem, 'styleUrl').trim();
     const extra = extractExtendedData(elem);
 
     for (const geom of allDescendants(elem)) {
       const gtag = localTag(geom);
       if (gtag === 'Point') {
+        if (isPurePhotoPlacemark(name, styleUrl, rawDesc, description, extra)) continue;
         const coordElem = childElements(geom).find((c) => localTag(c) === 'coordinates')
           || allDescendants(geom).find((c) => localTag(c) === 'coordinates');
         const pts = parseKmlCoordinates(coordElem ? coordElem.textContent : '');
@@ -310,12 +400,13 @@ function extractKmlFeatures(rootElem, routeId, category, poiKinds) {
         const line = parseKmlCoordinates(coordElem ? coordElem.textContent : '');
         if (line.length >= 2) {
           segIdx += 1;
+          const segName = name || `轨迹段 ${segIdx}`;
           const props = {
             feature_type: 'route',
             route_id: routeId,
             category,
             segment_index: segIdx,
-            name: name || `轨迹段 ${segIdx}`
+            name: segName
           };
           if (description) props.description = description;
           routes.push({
@@ -323,23 +414,32 @@ function extractKmlFeatures(rootElem, routeId, category, poiKinds) {
             geometry: { type: 'LineString', coordinates: line },
             properties: props
           });
+          qcSegments.push({ segment_index: segIdx, name: segName, points: line, times: [] });
         }
       } else if (gtag === 'Track') {
-        const line = parseGxCoordList(geom);
+        const { coords: line, times, timestampMismatch } = parseGxTrackPoints(geom);
         if (line.length >= 2) {
           segIdx += 1;
+          const segName = name || `轨迹段 ${segIdx}`;
           const props = {
             feature_type: 'route',
             route_id: routeId,
             category,
             segment_index: segIdx,
-            name: name || `轨迹段 ${segIdx}`
+            name: segName
           };
           if (description) props.description = description;
           routes.push({
             type: 'Feature',
             geometry: { type: 'LineString', coordinates: line },
             properties: props
+          });
+          qcSegments.push({
+            segment_index: segIdx,
+            name: segName,
+            points: line,
+            times,
+            timestamp_mismatch: timestampMismatch
           });
         }
       } else if (gtag === 'Polygon') {
@@ -356,12 +456,13 @@ function extractKmlFeatures(rootElem, routeId, category, poiKinds) {
   if (!routes.length && !pois.length && polygonRings.length) {
     for (const item of polygonRings) {
       segIdx += 1;
+      const segName = item.name || `边界 ${segIdx}`;
       const props = {
         feature_type: 'route',
         route_id: routeId,
         category,
         segment_index: segIdx,
-        name: item.name || `边界 ${segIdx}`
+        name: segName
       };
       if (item.description) props.description = item.description;
       routes.push({
@@ -369,13 +470,14 @@ function extractKmlFeatures(rootElem, routeId, category, poiKinds) {
         geometry: { type: 'LineString', coordinates: item.ring },
         properties: props
       });
+      qcSegments.push({ segment_index: segIdx, name: segName, points: item.ring, times: [] });
     }
   }
 
-  return { routes, pois };
+  return { routes, pois, qcSegments };
 }
 
-function extractGpxPoint(ptElem) {
+function extractGpxPointWithTime(ptElem) {
   const lat = Number(ptElem.getAttribute('lat'));
   const lng = Number(ptElem.getAttribute('lon'));
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
@@ -387,12 +489,19 @@ function extractGpxPoint(ptElem) {
     const ele = Number(eleText);
     if (Number.isFinite(ele)) pos.push(roundNum(ele, 2));
   }
-  return pos;
+  const timeText = directChildText(ptElem, 'time') || null;
+  return { pos, timeText };
+}
+
+function extractGpxPoint(ptElem) {
+  const parsed = extractGpxPointWithTime(ptElem);
+  return parsed ? parsed.pos : null;
 }
 
 function extractGpxFeatures(rootElem, routeId, category, poiKinds) {
   const routes = [];
   const pois = [];
+  const qcSegments = [];
   let segIdx = 0;
 
   for (const elem of childElements(rootElem)) {
@@ -427,23 +536,29 @@ function extractGpxFeatures(rootElem, routeId, category, poiKinds) {
 
       for (const seg of segments) {
         const line = [];
+        const times = [];
         for (const child of childElements(seg)) {
           if (localTag(child) !== ptTag) continue;
-          const pos = extractGpxPoint(child);
-          if (!pos) continue;
+          const parsed = extractGpxPointWithTime(child);
+          if (!parsed) continue;
+          const { pos, timeText } = parsed;
           const prev = line[line.length - 1];
           if (!prev || prev[0] !== pos[0] || prev[1] !== pos[1]) {
             line.push(pos);
+            times.push(timeText);
+          } else if (timeText !== null) {
+            times[times.length - 1] = timeText;
           }
         }
         if (line.length >= 2) {
           segIdx += 1;
+          const segName = baseName || `轨迹段 ${segIdx}`;
           const props = {
             feature_type: 'route',
             route_id: routeId,
             category,
             segment_index: segIdx,
-            name: baseName || `轨迹段 ${segIdx}`
+            name: segName
           };
           if (baseDesc) props.description = baseDesc;
           routes.push({
@@ -451,12 +566,13 @@ function extractGpxFeatures(rootElem, routeId, category, poiKinds) {
             geometry: { type: 'LineString', coordinates: line },
             properties: props
           });
+          qcSegments.push({ segment_index: segIdx, name: segName, points: line, times });
         }
       }
     }
   }
 
-  return { routes, pois };
+  return { routes, pois, qcSegments };
 }
 
 function haversineKm(p1, p2) {
@@ -472,9 +588,24 @@ function haversineKm(p1, p2) {
   return 2 * rKm * Math.asin(Math.min(1, Math.sqrt(a)));
 }
 
+function downsampleProfile(values, maxPoints = 32) {
+  if (!values.length) return [];
+  const n = values.length;
+  if (n <= maxPoints) return values.map((v) => Math.round(v));
+  const out = [];
+  const step = (n - 1) / (maxPoints - 1);
+  for (let i = 0; i < maxPoints; i++) {
+    const idx = Math.min(n - 1, Math.round(i * step));
+    out.push(Math.round(values[idx]));
+  }
+  return out;
+}
+
 export function computeMetrics(routeFeatures, poiFeatures) {
   let totalKm = 0;
   let gainM = 0;
+  let lossM = 0;
+  const routeEles = [];
   let maxEle = -Infinity;
   let minEle = Infinity;
   let hasEle = false;
@@ -506,12 +637,14 @@ export function computeMetrics(routeFeatures, poiFeatures) {
       if (i > 0) totalKm += haversineKm(coords[i - 1], pos);
       if (pos.length >= 3 && Number.isFinite(pos[2])) {
         const ele = pos[2];
+        routeEles.push(ele);
         if (lastEle === null) {
           lastEle = ele;
         } else if (ele - lastEle >= 3.0) {
           gainM += ele - lastEle;
           lastEle = ele;
         } else if (lastEle - ele >= 3.0) {
+          lossM += lastEle - ele;
           lastEle = ele;
         }
       }
@@ -526,8 +659,10 @@ export function computeMetrics(routeFeatures, poiFeatures) {
   return {
     distance_km: roundNum(totalKm, 2),
     elevation_gain_m: hasEle ? Math.round(gainM) : null,
+    elevation_loss_m: hasEle ? Math.round(lossM) : null,
     max_ele_m: hasEle ? Math.round(maxEle) : null,
     min_ele_m: hasEle ? Math.round(minEle) : null,
+    ele_profile_preview: downsampleProfile(routeEles, 32),
     bbox: hasCoords
       ? [roundNum(minLng, 6), roundNum(minLat, 6), roundNum(maxLng, 6), roundNum(maxLat, 6)]
       : null,
@@ -779,7 +914,7 @@ export function parseXmlRouteText(xmlText, fileName, schema = {}, domParser = ne
     extracted = extractKmlFeatures(rootElem, routeId, docMeta.category || 'hiking', poiKinds);
   }
 
-  const { routes, pois } = extracted;
+  const { routes, pois, qcSegments = [] } = extracted;
   if (!routes.length && !pois.length) {
     throw new Error(`文件「${fileName}」中未找到有效的轨迹或路点坐标`);
   }
@@ -792,6 +927,7 @@ export function parseXmlRouteText(xmlText, fileName, schema = {}, domParser = ne
   }
 
   const metrics = computeMetrics(routes, pois);
+  const qcReport = inspectTrackSegments(qcSegments, category);
   const displayName = (docName && !/^doc(\.kml)?$/i.test(docName)) ? docName : stem;
   const notes = docMeta.notes || (docDesc && docDesc !== displayName ? docDesc : '');
 
@@ -802,7 +938,8 @@ export function parseXmlRouteText(xmlText, fileName, schema = {}, domParser = ne
       category,
       name: displayName,
       ...docMeta,
-      ...(notes ? { notes } : {})
+      ...(notes ? { notes } : {}),
+      qc: qcReport
     },
     features: [...routes, ...pois]
   };
@@ -818,7 +955,10 @@ export function parseXmlRouteText(xmlText, fileName, schema = {}, domParser = ne
     season: docMeta.season || [],
     status: docMeta.status || 'collected',
     notes,
-    ...metrics
+    ...metrics,
+    qc_status: qcReport.status,
+    qc_issues_count: qcReport.issues_count,
+    _qcSegments: qcSegments
   };
 
   return { entry, geojson };
@@ -842,6 +982,13 @@ export async function parseLocalRouteFile(file, schema = {}, domParser = new DOM
       feat.properties.category = category;
     }
     const metrics = computeMetrics(routes, pois);
+    const geojson = {
+      type: 'FeatureCollection',
+      properties: { ...docMeta, route_id: routeId, category, name: docMeta.name || stem },
+      features: [...routes, ...pois]
+    };
+    const qcReport = docMeta.qc || inspectGeojson(geojson, category);
+    geojson.properties.qc = qcReport;
     const displayName = docMeta.name || stem;
     return {
       entry: {
@@ -855,13 +1002,11 @@ export async function parseLocalRouteFile(file, schema = {}, domParser = new DOM
         season: docMeta.season || [],
         status: docMeta.status || 'collected',
         notes: docMeta.notes || '',
-        ...metrics
+        ...metrics,
+        qc_status: qcReport.status,
+        qc_issues_count: qcReport.issues_count
       },
-      geojson: {
-        type: 'FeatureCollection',
-        properties: { ...docMeta, route_id: routeId, category, name: displayName },
-        features: [...routes, ...pois]
-      }
+      geojson
     };
   }
 

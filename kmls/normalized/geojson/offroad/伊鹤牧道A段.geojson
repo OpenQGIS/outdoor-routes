@@ -7,8 +7,43 @@
     "status": "collected",
     "distance_km": 52.31,
     "elevation_gain_m": 2169,
+    "elevation_loss_m": 983,
     "max_ele_m": 4379,
     "min_ele_m": 2231,
+    "ele_profile_preview": [
+      2232,
+      2338,
+      2384,
+      2474,
+      2576,
+      2651,
+      2695,
+      2762,
+      2894,
+      2953,
+      3025,
+      3160,
+      3294,
+      3436,
+      3572,
+      3654,
+      3787,
+      3910,
+      4025,
+      4124,
+      4207,
+      4293,
+      4364,
+      4357,
+      4262,
+      4157,
+      4046,
+      3903,
+      3775,
+      3623,
+      3463,
+      3419
+    ],
     "bbox": [
       101.69396,
       31.592641,
@@ -16,7 +51,31 @@
       31.659251
     ],
     "segments_count": 1,
-    "waypoints_count": 8
+    "waypoints_count": 4,
+    "qc": {
+      "status": "passed",
+      "has_timestamps": true,
+      "total_points": 5342,
+      "timed_points": 5342,
+      "issues_count": 0,
+      "error_count": 0,
+      "warning_count": 0,
+      "by_type": {},
+      "max_speed_kmh": 71.4,
+      "max_step_dist_m": 56.8,
+      "thresholds": {
+        "max_speed_kmh": 140.0,
+        "min_jump_dist_m": 30.0,
+        "zero_dt_dist_m": 50.0,
+        "short_time_s": 5.0,
+        "short_time_dist_m": 150.0,
+        "max_gap_m": 5000.0,
+        "spike_dist_m": 150.0,
+        "max_ele_rate_ms": 15.0
+      },
+      "issues": [],
+      "truncated": false
+    }
   },
   "features": [
     {
@@ -26789,40 +26848,6 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          102.024415,
-          31.658426,
-          2230.6
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "offroad__伊鹤牧道A段",
-        "category": "offroad",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "description": "经度：102.024415\n纬度：31.658426\n海拔：2230.602010\n时间：2026-09-12 09:07:30",
-        "ele": 2230.6,
-        "attributes": {
-          "Type": "Point",
-          "ServerId": "0",
-          "PosType": "0",
-          "Longtitude": "102.024415",
-          "Latitude": "31.658426",
-          "Altitude": "2230.602010",
-          "Speed": "0.000000",
-          "Accuracy": "0.000000",
-          "Time": "1789175250797",
-          "FileId": "1675122147",
-          "FileSize": "0",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
           101.844795,
           31.593737,
           2997.44
@@ -26847,108 +26872,6 @@
           "Accuracy": "0.000000",
           "Time": "1789178021296",
           "FileId": "1675122150",
-          "FileSize": "0",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          101.843397,
-          31.593577,
-          3005.01
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "offroad__伊鹤牧道A段",
-        "category": "offroad",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "description": "经度：101.843397\n纬度：31.593577\n海拔：3005.007758\n时间：2026-09-12 09:55:21",
-        "ele": 3005.01,
-        "attributes": {
-          "Type": "Point",
-          "ServerId": "2",
-          "PosType": "0",
-          "Longtitude": "101.843397",
-          "Latitude": "31.593577",
-          "Altitude": "3005.007758",
-          "Speed": "0.000000",
-          "Accuracy": "0.000000",
-          "Time": "1789178121022",
-          "FileId": "1675122152",
-          "FileSize": "0",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          101.774911,
-          31.62215,
-          4364.62
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "offroad__伊鹤牧道A段",
-        "category": "offroad",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "description": "经度：101.774911\n纬度：31.622150\n海拔：4364.622349\n时间：2026-09-12 10:38:00",
-        "ele": 4364.62,
-        "attributes": {
-          "Type": "Point",
-          "ServerId": "3",
-          "PosType": "0",
-          "Longtitude": "101.774911",
-          "Latitude": "31.622150",
-          "Altitude": "4364.622349",
-          "Speed": "0.000000",
-          "Accuracy": "0.000000",
-          "Time": "1789180680927",
-          "FileId": "1675122155",
-          "FileSize": "0",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          101.695887,
-          31.603641,
-          3407.99
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "offroad__伊鹤牧道A段",
-        "category": "offroad",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "description": "经度：101.695887\n纬度：31.603641\n海拔：3407.985126\n时间：2026-09-12 11:18:55",
-        "ele": 3407.99,
-        "attributes": {
-          "Type": "Point",
-          "ServerId": "4",
-          "PosType": "0",
-          "Longtitude": "101.695887",
-          "Latitude": "31.603641",
-          "Altitude": "3407.985126",
-          "Speed": "0.000000",
-          "Accuracy": "0.000000",
-          "Time": "1789183135938",
-          "FileId": "1675122157",
           "FileSize": "0",
           "FileType": "0"
         }

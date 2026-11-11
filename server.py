@@ -88,6 +88,7 @@ class OutdoorRoutesHandler(SimpleHTTPRequestHandler):
             '/api/kmls/update_meta',
             '/api/kmls/save_pois',
             '/api/kmls/sync',
+            '/api/kmls/qc',
         ):
             self.send_response(404)
             self.end_headers()
@@ -112,6 +113,23 @@ class OutdoorRoutesHandler(SimpleHTTPRequestHandler):
             elif parsed.path == '/api/kmls/save_pois':
                 out = ingest_kml.save_route_pois(params['id'], params.get('pois', []))
                 res = {'ok': True, **out}
+            elif parsed.path == '/api/kmls/qc':
+                mode = params.get('mode', 'archived')
+                thresholds = params.get('thresholds') or {}
+                category = params.get('category') or None
+                if mode == 'inbox':
+                    rel_file = str(params.get('file') or '').strip()
+                    target_path = ingest_kml._safe_rel_path(ingest_kml.INBOX_DIR, rel_file)
+                else:
+                    route_id = str(params.get('id') or '').strip()
+                    catalog = ingest_kml._load_catalog(ingest_kml.CATALOG_PATH)
+                    entry = next((r for r in catalog.get('routes', []) if r.get('id') == route_id), None)
+                    if not entry:
+                        raise KeyError(f'Route not found: {route_id}')
+                    target_path = ingest_kml._safe_rel_path(ingest_kml.RAW_DIR, entry['raw_file'])
+                    category = category or entry.get('category')
+                qc = ingest_kml.qc_route_file(target_path, category=category, thresholds=thresholds)
+                res = {'ok': True, 'qc': qc}
             else:
                 cat = ingest_kml.sync_catalog(prune=bool(params.get('prune', False)))
                 res = {'ok': True, 'catalog': cat}

@@ -7,8 +7,43 @@
     "status": "collected",
     "distance_km": 61.58,
     "elevation_gain_m": 1974,
+    "elevation_loss_m": 2832,
     "max_ele_m": 4674,
     "min_ele_m": 2525,
+    "ele_profile_preview": [
+      3430,
+      3623,
+      3790,
+      3949,
+      4087,
+      4246,
+      4459,
+      4618,
+      4548,
+      4461,
+      4398,
+      4293,
+      4165,
+      4095,
+      4025,
+      3925,
+      4012,
+      3992,
+      3855,
+      3678,
+      3463,
+      3327,
+      3195,
+      3069,
+      2962,
+      2862,
+      2759,
+      2609,
+      2536,
+      2536,
+      2539,
+      2571
+    ],
     "bbox": [
       101.570626,
       31.598065,
@@ -16,7 +51,61 @@
       31.817379
     ],
     "segments_count": 1,
-    "waypoints_count": 2
+    "waypoints_count": 2,
+    "qc": {
+      "status": "error",
+      "has_timestamps": true,
+      "total_points": 7626,
+      "timed_points": 7626,
+      "issues_count": 1,
+      "error_count": 1,
+      "warning_count": 0,
+      "by_type": {
+        "speed_jump": 1
+      },
+      "max_speed_kmh": 223.9,
+      "max_step_dist_m": 124.4,
+      "thresholds": {
+        "max_speed_kmh": 140.0,
+        "min_jump_dist_m": 30.0,
+        "zero_dt_dist_m": 50.0,
+        "short_time_s": 5.0,
+        "short_time_dist_m": 150.0,
+        "max_gap_m": 5000.0,
+        "spike_dist_m": 150.0,
+        "max_ele_rate_ms": 15.0
+      },
+      "issues": [
+        {
+          "id": "seg1-pt7176-speed_jump",
+          "type": "speed_jump",
+          "type_label": "距离大时间短 (瞬时超速)",
+          "severity": "error",
+          "segment_index": 1,
+          "segment_name": "轨迹段 1",
+          "point_index": 7176,
+          "prev_index": 7175,
+          "coord": [
+            101.655072,
+            31.806212,
+            2551.59
+          ],
+          "prev_coord": [
+            101.653889,
+            31.805721,
+            2553.98
+          ],
+          "time": "2026-04-03T16:22:00Z",
+          "prev_time": "2026-04-03T16:21:58Z",
+          "distance_m": 124.4,
+          "dt_s": 2.0,
+          "speed_kmh": 223.9,
+          "ele_diff_m": -2.4,
+          "message": "轨迹段 1 第 7176 点：2.0s 内移动 124.4m（223.9 km/h，阈值 140 km/h）"
+        }
+      ],
+      "truncated": false
+    }
   },
   "features": [
     {

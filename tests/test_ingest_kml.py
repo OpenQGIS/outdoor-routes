@@ -100,6 +100,8 @@ class TestIngestKml(unittest.TestCase):
             self.assertGreater(entry["distance_km"], 2.0)
             self.assertEqual(entry["max_ele_m"], 4200)
             self.assertEqual(entry["elevation_gain_m"], 400)
+            self.assertEqual(entry["elevation_loss_m"], 0)
+            self.assertEqual(entry["ele_profile_preview"], [3800, 3950, 4100, 4100, 4200])
 
             out_geojson = norm_root / "offroad" / "川西" / "格聂南线.geojson"
             self.assertTrue(out_geojson.exists())
@@ -201,7 +203,7 @@ class TestIngestKml(unittest.TestCase):
                 category="offroad",
                 region="四川-甘孜",
                 name="格聂南线-标准版",
-                meta={"difficulty": "轻度改装", "season": ["9月", "10月"], "status": "verified", "notes": "初版归档"},
+                meta={"difficulty": "轻度改装", "season": ["9月", "10月"], "status": "verified", "year": "2026", "notes": "初版归档"},
                 inbox_root=inbox_root,
                 raw_root=raw_root,
                 normalized_root=norm_root,
@@ -220,6 +222,7 @@ class TestIngestKml(unittest.TestCase):
             self.assertEqual(doc_meta["region"], "四川-甘孜")
             self.assertEqual(doc_meta["difficulty"], "轻度改装")
             self.assertEqual(doc_meta["season"], ["9月", "10月"])
+            self.assertEqual(doc_meta["year"], "2026")
 
             # Add a custom POI via save_route_pois
             fc_after = ingest_kml.save_route_pois(
@@ -306,6 +309,41 @@ class TestIngestKml(unittest.TestCase):
             geojson_data = json.loads((norm_root / "offroad" / "伊鹤牧道测试.geojson").read_text(encoding="utf-8"))
             self.assertEqual(geojson_data["properties"]["region"], "四川-阿坝")
             self.assertEqual(geojson_data["properties"]["difficulty"], "轻度改装")
+
+    def test_pure_photo_placemarks_are_skipped(self):
+        kml_with_photos = """<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <Placemark>
+      <name>主轨迹</name>
+      <LineString><coordinates>101.8,29.4,3000 101.9,29.5,3200</coordinates></LineString>
+    </Placemark>
+    <Placemark>
+      <name>
+      </name>
+      <styleUrl>#MarkerStylePicture</styleUrl>
+      <description><![CDATA[<div><img src="https://example.com/1.jpg"/></div>]]></description>
+      <Point><coordinates>101.83,29.48,3095</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>MarkerStylePicture</styleUrl>
+      <description><![CDATA[<div><img src="https://example.com/2.jpg"/></div><div>经度：101.84</div><div>纬度：29.47</div><div>海拔：3093</div><div>时间：2026-08-31 12:00:00</div>]]></description>
+      <Point><coordinates>101.84,29.47,3093</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>远处雪崩</name>
+      <styleUrl>#MarkerStylePicture</styleUrl>
+      <description><![CDATA[<div><img src="https://example.com/3.jpg"/></div>]]></description>
+      <Point><coordinates>101.85,29.46,3500</coordinates></Point>
+    </Placemark>
+  </Document>
+</kml>
+"""
+        root = ingest_kml._decode_xml_bytes(kml_with_photos.encode("utf-8"))
+        routes, pois = ingest_kml._extract_kml_features(root, "test__photo", "hiking", {})
+        self.assertEqual(len(routes), 1)
+        self.assertEqual(len(pois), 1)
+        self.assertEqual(pois[0]["properties"]["name"], "远处雪崩")
 
 
 if __name__ == "__main__":

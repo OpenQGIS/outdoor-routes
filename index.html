@@ -3,723 +3,496 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Outdoor Routes — 户外路线图鉴与标注工作台</title>
+  <title>Outdoor Routes — 户外轨迹图鉴与 3D 地形拆解</title>
   <link rel="stylesheet" href="./web/vendor/leaflet.css" />
   <link rel="stylesheet" href="./web/vendor/maplibre-gl.css" />
   <link rel="stylesheet" href="./web/css/base.css" />
-  <style>
-    body { overflow: hidden; }
-    #left-panel {
-      width: 340px;
-      min-width: 300px;
-      background: var(--bg-panel);
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      z-index: 20;
-    }
-    .panel-header {
-      padding: 12px 14px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-    .panel-title { font-size: 14px; font-weight: 700; color: #fff; }
-    .nav-bar {
-      padding: 8px 12px;
-      background: rgba(0,0,0,0.25);
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      gap: 6px;
-    }
-    .nav-link {
-      flex: 1;
-      text-align: center;
-      padding: 5px 4px;
-      border-radius: 4px;
-      font-size: 11.5px;
-      font-weight: 600;
-      text-decoration: none;
-      color: var(--text-muted);
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-    }
-    .nav-link.active {
-      background: #1f6feb;
-      border-color: #388bfd;
-      color: #fff;
-    }
-    .basemap-bar {
-      padding: 8px 12px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      gap: 7px;
-    }
-    .hillshade-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      font-size: 11.5px;
-      color: var(--text-muted);
-    }
-    .hillshade-toggle {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      cursor: pointer;
-      color: var(--text-main);
-      white-space: nowrap;
-      user-select: none;
-    }
-    .hillshade-toggle input[type="checkbox"] {
-      width: auto;
-      accent-color: var(--accent);
-      cursor: pointer;
-    }
-    .hillshade-opacity-wrap {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex: 1;
-      min-width: 90px;
-    }
-    .hillshade-opacity-wrap input[type="range"] {
-      padding: 0;
-      height: 4px;
-      cursor: pointer;
-    }
-    .leaflet-hillshade-pane {
-      mix-blend-mode: multiply;
-    }
-    .basemap-bar select { flex: 1; }
-    .tab-bar {
-      display: flex;
-      border-bottom: 1px solid var(--border);
-      background: rgba(255,255,255,0.02);
-    }
-    .tab-btn {
-      flex: 1;
-      border: none;
-      border-bottom: 2px solid transparent;
-      border-radius: 0;
-      background: transparent;
-      padding: 9px 6px;
-      font-weight: 600;
-      color: var(--text-muted);
-    }
-    .tab-btn.active {
-      color: #fff;
-      border-bottom-color: var(--accent);
-      background: rgba(47, 129, 247, 0.08);
-    }
-    .filters-box {
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .pill-row { display: flex; gap: 5px; flex-wrap: wrap; }
-    .pill {
-      padding: 3px 9px;
-      border-radius: 12px;
-      font-size: 11.5px;
-      font-weight: 600;
-      border: 1px solid var(--border);
-      background: var(--bg-card);
-      color: var(--text-muted);
-      cursor: pointer;
-      flex: 0 0 auto;
-    }
-    .pill.active {
-      background: rgba(47, 129, 247, 0.2);
-      border-color: var(--accent);
-      color: #fff;
-    }
-    .route-list {
-      flex: 1;
-      overflow-y: auto;
-      padding: 8px 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .route-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-left: 3px solid var(--border);
-      border-radius: 6px;
-      padding: 8px 10px;
-      cursor: pointer;
-      transition: background 0.12s, border-color 0.12s;
-    }
-    .route-card:hover { background: var(--bg-hover); }
-    .route-card.selected {
-      border-color: var(--accent);
-      background: rgba(47, 129, 247, 0.12);
-    }
-    .route-card.cat-offroad { border-left-color: #E85D04; }
-    .route-card.cat-cycling { border-left-color: #0EA5E9; }
-    .route-card.cat-hiking { border-left-color: #16A34A; }
-    .route-card.cat-inbox { border-left-color: #d29922; }
-    .route-card.cat-local { border-left-color: #d946ef; }
-    .local-actions-bar {
-      display: flex;
-      gap: 6px;
-      margin-bottom: 4px;
-    }
-    .rc-remove-btn {
-      flex: 0 0 auto;
-      background: transparent;
-      border: 1px solid transparent;
-      color: var(--text-muted);
-      padding: 0 5px;
-      font-size: 11px;
-      line-height: 1.4;
-      border-radius: 4px;
-    }
-    .rc-remove-btn:hover {
-      color: #ff7b72;
-      border-color: rgba(248, 81, 73, 0.45);
-      background: rgba(248, 81, 73, 0.12);
-    }
-    .rc-title {
-      font-weight: 600;
-      font-size: 12.5px;
-      color: #fff;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 6px;
-    }
-    .rc-meta {
-      margin-top: 4px;
-      font-size: 11px;
-      color: var(--text-muted);
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      font-family: var(--mono);
-    }
-    .badge {
-      font-size: 10px;
-      padding: 1px 6px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      color: var(--text-muted);
-      font-family: var(--sans);
-      white-space: nowrap;
-    }
-    .badge.verified { color: #3fb950; border-color: rgba(63,185,80,0.4); }
-    .badge.completed { color: #58a6ff; border-color: rgba(88,166,255,0.4); }
-
-    #map-wrap {
-      flex: 1;
-      position: relative;
-      height: 100vh;
-      background: #0d0f12;
-    }
-    #map { width: 100%; height: 100%; }
-    #map.crosshair-mode { cursor: crosshair; }
-
-    .map-toolbar {
-      position: absolute;
-      top: 12px;
-      left: 12px;
-      z-index: 500;
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .map-tool-btn {
-      flex: 0 0 auto;
-      background: rgba(20, 22, 25, 0.92);
-      border: 1px solid var(--border);
-      color: var(--text-main);
-      padding: 6px 11px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      backdrop-filter: blur(6px);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
-    }
-    .map-tool-btn.active {
-      background: #1f6feb;
-      border-color: #58a6ff;
-      color: #fff;
-    }
-
-    .hud-box {
-      position: absolute;
-      bottom: 12px;
-      left: 12px;
-      z-index: 500;
-      background: rgba(20, 22, 25, 0.88);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 5px 10px;
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--text-muted);
-      display: flex;
-      gap: 12px;
-    }
-    .hud-box strong { color: #fff; }
-
-    #toast {
-      position: absolute;
-      top: 14px;
-      left: 50%;
-      transform: translateX(-50%) translateY(-10px);
-      z-index: 1000;
-      background: rgba(20, 22, 25, 0.95);
-      border: 1px solid var(--accent);
-      color: #fff;
-      padding: 7px 14px;
-      border-radius: 6px;
-      font-size: 12px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.2s, transform 0.2s;
-    }
-    #toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-    #right-panel {
-      width: 370px;
-      min-width: 320px;
-      background: var(--bg-panel);
-      border-left: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      z-index: 20;
-    }
-    #right-panel.hidden { display: none; }
-    .drawer-body {
-      flex: 1;
-      overflow-y: auto;
-      padding: 12px 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .metric-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 6px;
-    }
-    .metric-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 5px;
-      padding: 6px 8px;
-    }
-    .metric-label { font-size: 10.5px; color: var(--text-muted); }
-    .metric-val { font-size: 13px; font-weight: 700; font-family: var(--mono); color: #fff; margin-top: 2px; }
-    .form-group { display: flex; flex-direction: column; gap: 4px; }
-    .form-label { font-size: 11.5px; color: var(--text-muted); font-weight: 600; }
-    .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    textarea {
-      background: var(--bg-card);
-      color: var(--text-main);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 6px 8px;
-      font-size: 12px;
-      font-family: var(--sans);
-      resize: vertical;
-      min-height: 62px;
-      outline: none;
-    }
-    textarea:focus { border-color: var(--accent); }
-    .season-grid {
-      display: grid;
-      grid-template-columns: repeat(6, 1fr);
-      gap: 4px;
-    }
-    .season-pill {
-      text-align: center;
-      padding: 3px 0;
-      font-size: 11px;
-      border-radius: 4px;
-      border: 1px solid var(--border);
-      background: var(--bg-card);
-      color: var(--text-muted);
-      cursor: pointer;
-      user-select: none;
-    }
-    .season-pill.active {
-      background: rgba(47, 129, 247, 0.25);
-      border-color: var(--accent);
-      color: #fff;
-      font-weight: 600;
-    }
-    .btn-primary {
-      background: #1f6feb;
-      border-color: #388bfd;
-      color: #fff;
-      font-weight: 600;
-    }
-    .btn-primary:hover { background: #2f81f7; }
-    .btn-danger {
-      background: rgba(248, 81, 73, 0.15);
-      border-color: rgba(248, 81, 73, 0.45);
-      color: #ff7b72;
-    }
-    .poi-section-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-top: 1px solid var(--border);
-      padding-top: 10px;
-    }
-    .poi-list { display: flex; flex-direction: column; gap: 6px; }
-    .poi-item {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 5px;
-      padding: 7px 9px;
-      cursor: pointer;
-    }
-    .poi-item:hover { background: var(--bg-hover); }
-    .poi-item-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-    .poi-editor {
-      background: rgba(47, 129, 247, 0.08);
-      border: 1px solid var(--accent);
-      border-radius: 6px;
-      padding: 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .empty-hint {
-      text-align: center;
-      color: var(--text-muted);
-      padding: 28px 12px;
-      font-size: 12px;
-      line-height: 1.7;
-    }
-    .mode-badge {
-      font-size: 10.5px;
-      padding: 2px 7px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: rgba(63, 185, 80, 0.14);
-      color: #7ee787;
-      white-space: nowrap;
-    }
-    body.readonly-mode .mode-badge {
-      background: rgba(56, 139, 253, 0.14);
-      color: #79c0ff;
-    }
-    body.readonly-mode .workbench-only,
-    #right-panel.local-preview-mode .workbench-only {
-      display: none !important;
-    }
-    #drop-overlay {
-      position: fixed;
-      inset: 0;
-      z-index: 2000;
-      background: rgba(13, 15, 18, 0.82);
-      backdrop-filter: blur(4px);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      pointer-events: none;
-    }
-    #drop-overlay.active {
-      display: flex;
-    }
-    .drop-overlay-card {
-      border: 2px dashed var(--accent);
-      background: rgba(20, 22, 25, 0.94);
-      border-radius: 14px;
-      padding: 36px 48px;
-      text-align: center;
-      max-width: 460px;
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
-    }
-    .drop-overlay-icon {
-      font-size: 36px;
-      margin-bottom: 10px;
-    }
-    .drop-overlay-title {
-      font-size: 16px;
-      font-weight: 700;
-      color: #fff;
-      margin-bottom: 6px;
-    }
-    .drop-overlay-sub {
-      font-size: 12.5px;
-      color: var(--text-muted);
-      line-height: 1.6;
-    }
-    .export-bar {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 8px;
-    }
-    .export-bar .export-label {
-      font-size: 11px;
-      color: var(--text-muted);
-      white-space: nowrap;
-      margin-right: 2px;
-    }
-    .export-btn {
-      padding: 4px 8px;
-      font-size: 11px;
-      border-radius: 4px;
-      font-weight: 600;
-    }
-    .export-btn.export-kml-primary {
-      background: #1f6feb;
-      border-color: #388bfd;
-      color: #fff;
-    }
-    .export-btn.export-kml-primary:hover {
-      background: #2f81f7;
-    }
-    .map-tool-btn:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-    }
-  </style>
+  <link rel="stylesheet" href="./web/css/app.css" />
 </head>
 <body>
   <div id="file-proto-banner" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(13,15,18,0.96); color:#e6edf3; align-items:center; justify-content:center; padding:24px;">
     <div style="max-width:520px; background:#141619; border:1px solid #2c313a; border-radius:10px; padding:22px 24px; line-height:1.7;">
-      <h2 style="font-size:16px; color:#fff; margin-bottom:10px;">需要通过本地服务打开路线标注工作台</h2>
+      <h2 style="font-size:16px; color:#fff; margin-bottom:10px;">需要通过本地服务打开路线图鉴工作台</h2>
       <p style="font-size:13px; color:#8b949e; margin-bottom:12px;">浏览器安全策略限制直接以 <code>file://</code> 协议读取本地数据与写回 <code>catalog.json</code>。</p>
       <p style="font-size:13px; color:#e6edf3; margin-bottom:14px;">请双击 <b>启动路线标注.bat</b>（或运行 <code>python server.py 8766</code>），然后访问：<br/><code style="color:#58a6ff;">http://127.0.0.1:8766/</code></p>
       <a href="http://127.0.0.1:8766/" style="display:inline-block; padding:7px 14px; background:#1f6feb; color:#fff; border-radius:6px; text-decoration:none; font-weight:600; font-size:12.5px;">如果服务已启动，点击直接跳转 →</a>
     </div>
   </div>
   <script>if (location.protocol === 'file:') { document.getElementById('file-proto-banner').style.display = 'flex'; }</script>
-  <aside id="left-panel">
-    <div class="panel-header">
-      <div style="display:flex; align-items:center; gap:6px; min-width:0;">
-        <div class="panel-title">📍 Outdoor Routes</div>
+
+  <div class="app-shell">
+    <!-- Global Top Navigation Bar -->
+    <header class="topbar">
+      <div class="topbar-brand" id="brand-home-btn" title="返回首页大屏">
+        <span class="brand-title">⛰️ Outdoor Routes</span>
         <span class="mode-badge" id="mode-badge">探测中...</span>
       </div>
-      <button type="button" id="btn-sync-kmls" class="workbench-only" style="flex:0 0 auto; padding:4px 8px; font-size:11px;" title="扫描 kmls/raw 并刷新 catalog.json">🔄 扫描同步</button>
-    </div>
 
-    <div class="basemap-bar">
-      <select id="basemap-select" title="选择地图底图">
-        <option value="openmap-vector" selected>🗺️ OpenMap 矢量地图 (Liberty)</option>
-        <option value="openmap-bright">🧭 OpenMap 矢量地图 (Bright)</option>
-        <option value="esri-sat">🛰️ Esri 卫星影像</option>
-        <option value="bing-sat">🛰️ Bing 卫星影像</option>
-        <option value="gaode-sat">🛰️ 高德卫星影像 (国内直连)</option>
-        <option value="opentopomap">⛰️ OpenTopoMap 地形等高线</option>
-        <option value="osm">🗺️ OpenStreetMap 标准栅格</option>
-        <option value="gaode-vec">🇨🇳 高德矢量地图 (国内直连)</option>
-      </select>
-      <div class="hillshade-row">
-        <label class="hillshade-toggle" title="在任意底图上叠加 Esri World Hillshade 地形山体阴影">
-          <input type="checkbox" id="toggle-hillshade" checked />
-          <span>⛰️ Esri 山体阴影</span>
-        </label>
-        <div class="hillshade-opacity-wrap">
-          <input type="range" id="hillshade-opacity" min="0" max="100" value="45" title="山体阴影透明度" />
-          <span id="hillshade-opacity-val" style="font-family:var(--mono); font-size:10.5px; min-width:30px; text-align:right;">45%</span>
-        </div>
+      <nav class="topbar-nav" aria-label="主导航">
+        <button type="button" class="nav-pill active" data-nav="home">首页</button>
+        <button type="button" class="nav-pill" data-nav="cat-offroad"><span class="nav-dot" style="background:#E85D04"></span>越野穿越</button>
+        <button type="button" class="nav-pill" data-nav="cat-cycling"><span class="nav-dot" style="background:#0EA5E9"></span>自行车</button>
+        <button type="button" class="nav-pill" data-nav="cat-hiking"><span class="nav-dot" style="background:#16A34A"></span>徒步</button>
+        <button type="button" class="nav-pill" data-nav="leaderboard">🏆 年度榜单</button>
+        <button type="button" class="nav-pill workbench-only" data-nav="cat-inbox">📥 Inbox (<span id="cnt-inbox">0</span>)</button>
+        <button type="button" class="nav-pill" data-nav="cat-local">📂 本地预览 (<span id="cnt-local">0</span>)</button>
+      </nav>
+
+      <div class="topbar-actions">
+        <button type="button" class="icon-btn" id="btn-open-local-kml" title="导入本地 .kml/.kmz/.gpx/.geojson（也可直接拖入窗口）">📂 导入 KML</button>
+        <button type="button" class="icon-btn workbench-only" id="btn-sync-kmls" title="扫描 kmls/raw 并刷新 catalog.json">🔄 扫描同步</button>
       </div>
-      <div class="hillshade-row" id="gcj-fix-row" style="display:none;">
-        <label class="hillshade-toggle" title="纯前端将高德 GCJ-02 瓦片实时纠偏对齐至 WGS-84，与 GPS 轨迹及 Esri 山体阴影零偏差叠加">
-          <input type="checkbox" id="toggle-gcj-fix" checked />
-          <span>🧭 高德 GCJ-02 → WGS-84 纠偏</span>
-        </label>
-      </div>
-    </div>
+      <input type="file" id="local-kml-input" accept=".kml,.kmz,.gpx,.geojson,.json" multiple style="display:none;" />
+    </header>
 
-    <div class="tab-bar">
-      <button type="button" class="tab-btn active" data-tab="catalog">已归档 (<span id="cnt-catalog">0</span>)</button>
-      <button type="button" class="tab-btn workbench-only" data-tab="inbox">待分类 Inbox (<span id="cnt-inbox">0</span>)</button>
-      <button type="button" class="tab-btn" data-tab="local">我的 KML (<span id="cnt-local">0</span>)</button>
-    </div>
+    <!-- ================= PAGE 1: FULL-SCREEN CONTOUR PORTAL ================= -->
+    <section id="view-home" class="view-pane active">
+      <canvas id="home-contour-canvas"></canvas>
 
-    <div class="filters-box" id="catalog-filters">
-      <div class="pill-row" id="cat-pills">
-        <button type="button" class="pill active" data-cat="all">全部</button>
-        <button type="button" class="pill" data-cat="offroad">越野</button>
-        <button type="button" class="pill" data-cat="cycling">骑行</button>
-        <button type="button" class="pill" data-cat="hiking">徒步</button>
-      </div>
-      <div class="form-row-2">
-        <input type="text" id="search-input" placeholder="🔍 搜索名称 / 地区 / 备注..." />
-        <select id="status-filter">
-          <option value="all">全部状态</option>
-          <option value="collected">已收藏 (collected)</option>
-          <option value="verified">已核实 (verified)</option>
-          <option value="completed">已打卡 (completed)</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="route-list" id="route-list"></div>
-  </aside>
-
-  <main id="map-wrap">
-    <div id="map"></div>
-    <div id="toast"></div>
-
-    <div class="map-toolbar">
-      <button type="button" class="map-tool-btn" id="btn-fit-route">🎯 定位当前路线</button>
-      <button type="button" class="map-tool-btn" id="btn-overlay-all">🗺️ 叠显筛选路线</button>
-      <button type="button" class="map-tool-btn" id="btn-open-local-kml" title="从本地选择 .kml / .kmz / .gpx / .geojson 文件预览（也可直接拖入浏览器窗口）">📂 导入 KML</button>
-      <button type="button" class="map-tool-btn" id="btn-download-kml" disabled title="下载包含完整轨迹、POI 与地区标注的导航 KML">🧭 下载导航 KML</button>
-      <button type="button" class="map-tool-btn workbench-only" id="btn-add-poi" title="开启后点击地图任意位置新增 POI 标注">➕ 点选新增 POI</button>
-    </div>
-    <input type="file" id="local-kml-input" accept=".kml,.kmz,.gpx,.geojson,.json" multiple style="display:none;" />
-
-    <div class="hud-box">
-      <span>Z: <strong id="hud-zoom">12.00</strong></span>
-      <span>Lat: <strong id="hud-lat">30.65860</strong></span>
-      <span>Lng: <strong id="hud-lng">104.06480</strong></span>
-    </div>
-  </main>
-
-  <aside id="right-panel" class="hidden">
-    <div class="panel-header">
-      <div class="panel-title" id="drawer-title">路线详情与标注</div>
-      <button type="button" id="btn-close-drawer" style="flex:0 0 auto; padding:3px 8px;">✕</button>
-    </div>
-
-    <div class="drawer-body">
-      <div class="metric-grid" id="route-metrics"></div>
-
-      <div class="export-bar" id="export-bar">
-        <span class="export-label">导出导航</span>
-        <button type="button" class="export-btn export-kml-primary" data-export="kml" title="下载包含轨迹、POI 及地区/难度等要素的导航 KML">🧭 导航 KML</button>
-        <button type="button" class="export-btn" data-export="gpx">⬇️ GPX</button>
-        <button type="button" class="export-btn" data-export="geojson">⬇️ GeoJSON</button>
-      </div>
-
-      <form id="meta-form" style="display:flex; flex-direction:column; gap:10px;">
-        <div class="form-group">
-          <label class="form-label">唯一标识 (id) / 源文件</label>
-          <input type="text" id="f-id" readonly style="opacity:0.75; font-family:var(--mono); font-size:11px;" />
+      <div class="home-content">
+        <div class="home-hero">
+          <h1 class="home-hero-title">户外路线图鉴与地形拆解</h1>
+          <div class="home-hero-sub" id="home-summary-stats">
+            <span>正在加载路线库...</span>
+          </div>
         </div>
 
-        <div class="form-row-2">
-          <div class="form-group">
-            <label class="form-label">分类 (category)</label>
-            <select id="f-category">
-              <option value="offroad">offroad · 越野穿越</option>
-              <option value="cycling">cycling · 自行车</option>
-              <option value="hiking">hiking · 徒步</option>
+        <div class="portal-grid">
+          <button type="button" class="portal-card" data-cat="offroad">
+            <div>
+              <div class="portal-card-top">
+                <div class="portal-icon">🚙</div>
+                <span class="portal-en">OFFROAD · 4X4</span>
+              </div>
+              <div class="portal-title">越野穿越</div>
+              <div class="portal-desc">无人区、林道、高原达坂与涉水穿越线路图鉴</div>
+            </div>
+            <div>
+              <div class="portal-stats" id="portal-stats-offroad">
+                <div><div class="portal-stat-val">-</div><div class="portal-stat-lbl">路线数</div></div>
+                <div><div class="portal-stat-val">-</div><div class="portal-stat-lbl">总里程</div></div>
+                <div><div class="portal-stat-val">-</div><div class="portal-stat-lbl">最高海拔</div></div>
+              </div>
+              <div class="portal-cta">
+                <span>进入越野路线地图</span>
+                <span>→</span>
+              </div>
+            </div>
+          </button>
+
+          <button type="button" class="portal-card" data-cat="cycling">
+            <div>
+              <div class="portal-card-top">
+                <div class="portal-icon">🚴</div>
+                <span class="portal-en">CYCLING · GRAVEL</span>
+              </div>
+              <div class="portal-title">自行车</div>
+              <div class="portal-desc">公路爬坡、山地 XC、砾石 Gravel 与长途骑行线</div>
+            </div>
+            <div>
+              <div class="portal-stats" id="portal-stats-cycling">
+                <div><div class="portal-stat-val">-</div><div class="portal-stat-lbl">路线数</div></div>
+                <div><div class="portal-stat-val">-</div><div class="portal-stat-lbl">总里程</div></div>
+                <div><div class="portal-stat-val">-</div><div class="portal-stat-lbl">最高海拔</div></div>
+              </div>
+              <div class="portal-cta">
+                <span>进入骑行路线地图</span>
+                <span>→</span>
+              </div>
+            </div>
+          </button>
+
+          <button type="button" class="portal-card" data-cat="hiking">
+            <div>
+              <div class="portal-card-top">
+                <div class="portal-icon">🥾</div>
+                <span class="portal-en">HIKING · ALPINE</span>
+              </div>
+              <div class="portal-title">徒步</div>
+              <div class="portal-desc">重装穿越、高海拔雪山垭口、古道与经典环线</div>
+            </div>
+            <div>
+              <div class="portal-stats" id="portal-stats-hiking">
+                <div><div class="portal-stat-val">-</div><div class="portal-stat-lbl">路线数</div></div>
+                <div><div class="portal-stat-val">-</div><div class="portal-stat-lbl">总里程</div></div>
+                <div><div class="portal-stat-val">-</div><div class="portal-stat-lbl">最高海拔</div></div>
+              </div>
+              <div class="portal-cta">
+                <span>进入徒步路线地图</span>
+                <span>→</span>
+              </div>
+            </div>
+          </button>
+        </div>
+
+        <div class="home-bottom-links">
+          <button type="button" class="home-sec-btn" id="home-btn-leaderboard">🏆 查看年度榜单</button>
+          <button type="button" class="home-sec-btn" id="home-btn-nearby">📍 按我的位置看周边地图</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= PAGE 2: CATEGORY SUBPAGE + MAP ================= -->
+    <section id="view-category" class="view-pane">
+      <aside id="cat-sidebar">
+        <div class="cat-sidebar-head">
+          <div class="cat-heading">
+            <span class="nav-dot" id="cat-page-dot" style="background:#E85D04"></span>
+            <span id="cat-page-title">越野穿越</span>
+          </div>
+          <span class="cat-count-chip" id="cat-page-count">0 条</span>
+        </div>
+
+        <div class="filters-box" id="catalog-filters">
+          <div class="pill-row" id="subtype-pills"></div>
+          <input type="text" id="search-input" placeholder="🔍 搜索名称 / 地区 / 标签 / 备注..." />
+          <div class="filter-grid-3">
+            <select id="difficulty-filter" title="按难度筛选">
+              <option value="all">全部难度</option>
+            </select>
+            <select id="sort-select" title="排序方式">
+              <option value="default">默认排序</option>
+              <option value="distance">里程最长</option>
+              <option value="gain">累计爬升最多</option>
+              <option value="maxele">最高海拔优先</option>
             </select>
           </div>
-          <div class="form-group">
-            <label class="form-label">细分类型 (sub_type)</label>
-            <input type="text" id="f-subtype" list="subtype-options" placeholder="如：穿越 / 公路 / 重装" />
-            <datalist id="subtype-options"></datalist>
-          </div>
+          <select id="status-filter" title="按打卡状态筛选">
+            <option value="all">全部状态</option>
+            <option value="collected">已收藏 (collected)</option>
+            <option value="verified">已核实 (verified)</option>
+            <option value="completed">已打卡 (completed)</option>
+          </select>
         </div>
 
-        <div class="form-row-2">
-          <div class="form-group">
-            <label class="form-label">地理大区/省市 (region)</label>
-            <input type="text" id="f-region" placeholder="如：四川-甘孜" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">路线名称 (name)</label>
-            <input type="text" id="f-name" placeholder="标准路线名称" />
-          </div>
+        <div class="route-list" id="route-list"></div>
+      </aside>
+
+      <main id="map-wrap">
+        <div id="map"></div>
+
+        <div class="map-toolbar">
+          <button type="button" class="map-tool-btn" id="btn-locate-me" title="获取当前位置并在周边地图展示">📍 定位我周边</button>
+          <button type="button" class="map-tool-btn" id="btn-pick-center" title="点击地图任意位置居中探索周边">🎯 地图设中心</button>
+          <button type="button" class="map-tool-btn active" id="btn-overlay-all">🗺️ 叠显本类路线</button>
+          <button type="button" class="map-tool-btn" id="btn-fit-category">🔲 适配全览</button>
+          <button type="button" class="map-tool-btn" id="btn-basemap-popover">🏔️ 底图与山体阴影 ▾</button>
+          <button type="button" class="map-tool-btn workbench-only" id="btn-add-poi" title="开启后点击地图位置新增 POI">➕ 点选新增 POI</button>
         </div>
 
-        <div class="form-row-2">
+        <!-- Basemap & Hillshade Popover -->
+        <div class="basemap-popover" id="basemap-popover">
           <div class="form-group">
-            <label class="form-label">难度评级 (difficulty)</label>
-            <input type="text" id="f-difficulty" list="difficulty-options" placeholder="选择或输入评级" />
-            <datalist id="difficulty-options"></datalist>
-          </div>
-          <div class="form-group">
-            <label class="form-label">打卡状态 (status)</label>
-            <select id="f-status">
-              <option value="collected">collected · 已收藏</option>
-              <option value="verified">verified · 已核实</option>
-              <option value="completed">completed · 已打卡</option>
+            <label class="form-label">地图底图</label>
+            <select id="basemap-select">
+              <option value="openmap-vector" selected>🗺️ OpenMap 矢量地图 (Liberty)</option>
+              <option value="openmap-bright">🧭 OpenMap 矢量地图 (Bright)</option>
+              <option value="esri-sat">🛰️ Esri 卫星影像</option>
+              <option value="bing-sat">🛰️ Bing 卫星影像</option>
+              <option value="gaode-sat">🛰️ 高德卫星影像 (国内直连)</option>
+              <option value="opentopomap">⛰️ OpenTopoMap 地形等高线</option>
+              <option value="osm">🗺️ OpenStreetMap 标准栅格</option>
+              <option value="gaode-vec">🇨🇳 高德矢量地图 (国内直连)</option>
             </select>
           </div>
+          <div class="hillshade-row">
+            <label class="hillshade-toggle">
+              <input type="checkbox" id="toggle-hillshade" checked />
+              <span>⛰️ Esri 山体阴影</span>
+            </label>
+            <div class="hillshade-opacity-wrap">
+              <input type="range" id="hillshade-opacity" min="0" max="100" value="45" />
+              <span id="hillshade-opacity-val" style="font-family:var(--mono); font-size:10.5px; min-width:30px; text-align:right;">45%</span>
+            </div>
+          </div>
+          <div class="hillshade-row" id="gcj-fix-row" style="display:none;">
+            <label class="hillshade-toggle">
+              <input type="checkbox" id="toggle-gcj-fix" checked />
+              <span>🧭 高德 GCJ-02 → WGS-84 纠偏</span>
+            </label>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">适行季节 (season)</label>
-          <div class="season-grid" id="season-grid"></div>
+        <!-- Bottom-left Floating Route Elevation Preview Card -->
+        <div class="map-preview-card" id="map-preview-card">
+          <div class="mpc-head">
+            <div>
+              <div class="mpc-title" id="mpc-title">路线名称</div>
+              <div class="mpc-sub" id="mpc-sub">分类 · 地区</div>
+            </div>
+            <button type="button" id="mpc-close" style="flex:0 0 auto; padding:2px 7px; font-size:11px;">✕</button>
+          </div>
+          <div class="mpc-body">
+            <div class="mpc-stats" id="mpc-stats"></div>
+            <div id="mpc-sparkline"></div>
+          </div>
+          <div class="mpc-actions">
+            <div style="display:flex; gap:6px; align-items:center;">
+              <button type="button" class="icon-btn" id="mpc-btn-fit" style="font-size:11.5px;">🎯 居中</button>
+              <button type="button" class="icon-btn" id="mpc-btn-kml" style="font-size:11.5px;">⬇️ 导出 KML</button>
+              <button type="button" class="icon-btn" id="mpc-btn-qc" style="font-size:11.5px;" title="查看该路线的 KML 轨迹质检报告">🛡️ 质检</button>
+            </div>
+            <button type="button" class="btn-primary" id="mpc-btn-detail" style="flex:0 0 auto; padding:6px 14px; font-size:12px;">🧊 进入 3D 详细拆解 →</button>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">路线标注备注 (notes)</label>
-          <textarea id="f-notes" placeholder="路况提醒、准入限制、车辆/装备建议..."></textarea>
+        <div class="hud-box">
+          <span>Z: <strong id="hud-zoom">12.00</strong></span>
+          <span>Lat: <strong id="hud-lat">30.65860</strong></span>
+          <span>Lng: <strong id="hud-lng">104.06480</strong></span>
+        </div>
+      </main>
+    </section>
+
+    <!-- ================= PAGE 3: STANDALONE LEADERBOARD ================= -->
+    <section id="view-leaderboard" class="view-pane">
+      <div class="lb-container">
+        <div class="lb-header">
+          <div>
+            <h2 class="lb-title">🏆 年度户外路线榜单</h2>
+            <div class="lb-subtitle">独立路线数据排行（不依赖轨迹文件时间戳，支持按手动标注年份或全库维度榜单展示）</div>
+          </div>
+          <div class="lb-controls">
+            <div class="pill-row" id="lb-cat-pills">
+              <button type="button" class="pill active" data-lb-cat="all">全部分类</button>
+              <button type="button" class="pill" data-lb-cat="offroad">越野穿越</button>
+              <button type="button" class="pill" data-lb-cat="cycling">自行车</button>
+              <button type="button" class="pill" data-lb-cat="hiking">徒步</button>
+            </div>
+            <select id="lb-year-filter" style="width:auto; min-width:110px;" title="按手动标注的年份筛选">
+              <option value="all">全部榜单</option>
+            </select>
+            <div class="pill-row" id="lb-metric-pills">
+              <button type="button" class="pill active" data-lb-metric="distance_km">最远里程</button>
+              <button type="button" class="pill" data-lb-metric="elevation_gain_m">最大爬升</button>
+              <button type="button" class="pill" data-lb-metric="max_ele_m">最高海拔</button>
+            </div>
+          </div>
         </div>
 
-        <div style="display:flex; gap:8px;" class="workbench-only">
-          <button type="submit" class="btn-primary" id="btn-save-meta">💾 保存标注</button>
-        </div>
-      </form>
+        <div class="lb-summary-strip" id="lb-summary-strip"></div>
+        <div class="lb-cat-bar-wrap" id="lb-cat-bar-wrap"></div>
+        <div class="lb-podium" id="lb-podium"></div>
+        <div class="lb-table" id="lb-table"></div>
+      </div>
+    </section>
 
-      <div class="poi-section-header">
-        <span class="form-label" style="font-size:12px; color:#fff;">POI 路点标注 (<span id="poi-count">0</span>)</span>
-        <button type="button" id="btn-drawer-add-poi" class="workbench-only" style="flex:0 0 auto; padding:3px 8px; font-size:11px;">➕ 地图选点新增</button>
+    <!-- ================= PAGE 4: L-SHAPED ROUTE DETAIL BREAKDOWN ================= -->
+    <section id="view-detail" class="view-pane">
+      <div class="detail-subbar">
+        <div class="detail-title-group">
+          <button type="button" class="icon-btn" id="btn-detail-back">← 返回</button>
+          <span class="badge" id="detail-cat-badge">越野穿越</span>
+          <span class="detail-title-text" id="detail-route-title">路线名称</span>
+          <span class="badge" id="detail-region-badge" style="display:none;"></span>
+          <span class="badge" id="detail-year-badge" style="display:none;"></span>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+          <button type="button" class="icon-btn" id="btn-detail-prev" title="上一条路线">◀ 上一条</button>
+          <button type="button" class="icon-btn" id="btn-detail-next" title="下一条路线">下一条 ▶</button>
+          <button type="button" class="icon-btn export-kml-primary" id="btn-detail-export-kml" style="background:#1f6feb; border-color:#388bfd; color:#fff;">🧭 导出 KML</button>
+          <button type="button" class="icon-btn" id="btn-detail-export-gpx">GPX</button>
+        </div>
       </div>
 
-      <div id="poi-editor" class="poi-editor" style="display:none;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <strong style="font-size:12px;" id="poi-editor-title">编辑 POI</strong>
-          <button type="button" id="btn-cancel-poi" style="flex:0 0 auto; padding:2px 7px; font-size:11px;">取消</button>
-        </div>
-        <div class="form-row-2">
-          <div class="form-group">
-            <label class="form-label">POI 名称</label>
-            <input type="text" id="p-name" placeholder="如：热梯河营地" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">语义类型 (poi_kind)</label>
-            <select id="p-kind"></select>
-          </div>
-        </div>
-        <div class="form-row-2">
-          <div class="form-group">
-            <label class="form-label">经度 / 纬度</label>
-            <input type="text" id="p-coords" readonly style="opacity:0.75; font-family:var(--mono); font-size:11px;" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">海拔 (m)</label>
-            <input type="text" id="p-ele" placeholder="可选" />
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">POI 说明</label>
-          <textarea id="p-desc" style="min-height:46px;" placeholder="营地容量、水源情况、路障说明..."></textarea>
-        </div>
-        <div style="display:flex; gap:8px;">
-          <button type="button" class="btn-primary" id="btn-save-poi">保存 POI</button>
-          <button type="button" class="btn-danger" id="btn-delete-poi" style="flex:0 0 auto;">删除</button>
-        </div>
-      </div>
+      <div class="detail-l-grid">
+        <!-- Left-Top: 3D Terrain Block Stage -->
+        <div class="detail-stage-3d">
+          <div id="terrain-3d-container"></div>
+          <div class="stage-status-pill" id="terrain-3d-status">准备 3D 地形方块...</div>
 
-      <div class="poi-list" id="poi-list"></div>
-    </div>
-  </aside>
+          <div class="stage-controls-pill">
+            <div class="stage-ctrl-group" id="tex-mode-pills">
+              <span>纹理</span>
+              <button type="button" class="mini-pill-btn active" data-tex="esri-sat">卫星</button>
+              <button type="button" class="mini-pill-btn" data-tex="opentopomap">地形</button>
+              <button type="button" class="mini-pill-btn" data-tex="contour-dark">等高线</button>
+            </div>
+            <div class="stage-ctrl-group">
+              <span>夸大</span>
+              <input type="range" id="terrain-exag-slider" min="0.8" max="3.5" step="0.1" value="1.6" style="width:74px; padding:0; border:none; background:transparent;" />
+              <span id="terrain-exag-val" style="font-family:var(--mono); color:#fff; min-width:30px;">1.6x</span>
+            </div>
+            <div class="stage-ctrl-group">
+              <button type="button" class="mini-pill-btn" data-cam="iso">等轴测</button>
+              <button type="button" class="mini-pill-btn" data-cam="top">俯视</button>
+              <button type="button" class="mini-pill-btn" data-cam="side">侧视</button>
+            </div>
+            <div class="stage-ctrl-group">
+              <button type="button" class="mini-pill-btn" id="btn-snapshot-3d">📸 截图</button>
+            </div>
+          </div>
+
+          <div class="detail-minimap-box" id="detail-minimap-box">
+            <button type="button" class="minimap-toggle-btn" id="btn-toggle-minimap" title="放大/缩小 2D 鹰眼图">⤢</button>
+            <div id="detail-minimap"></div>
+          </div>
+        </div>
+
+        <!-- Bottom: Wide Interactive Elevation Profile -->
+        <div class="detail-profile-panel">
+          <div class="profile-panel-head">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <strong style="color:#e2e8f0; font-size:12px;">📈 交互式高程剖面图</strong>
+              <span id="profile-ele-source" style="font-size:11px; color:#8b949e;">支持鼠标滑动联动 3D 光标 · 拖拽框选测坡（双击清除）</span>
+            </div>
+            <div class="slope-legend">
+              <span class="slope-dot"><i style="background:#38bdf8"></i>下坡</span>
+              <span class="slope-dot"><i style="background:#22c55e"></i>缓行</span>
+              <span class="slope-dot"><i style="background:#f97316"></i>爬坡</span>
+              <span class="slope-dot"><i style="background:#ef4444"></i>陡坡 ≥8%</span>
+            </div>
+          </div>
+          <div id="profile-chart-host"></div>
+        </div>
+
+        <!-- Right: Breakdown Metrics, POI Timeline & Editor -->
+        <aside class="detail-sidebar">
+          <div class="detail-hero-metrics" id="detail-hero-metrics"></div>
+
+          <div class="detail-tabs">
+            <button type="button" class="detail-tab-btn active" data-dtab="breakdown">地形拆解</button>
+            <button type="button" class="detail-tab-btn" data-dtab="pois">POI (<span id="detail-poi-cnt">0</span>)</button>
+            <button type="button" class="detail-tab-btn" data-dtab="qc">质检 <span id="detail-qc-cnt" class="qc-tab-pill"></span></button>
+            <button type="button" class="detail-tab-btn" data-dtab="edit">标注与导出</button>
+          </div>
+
+          <div class="detail-tab-body">
+            <!-- Tab 1: Terrain Breakdown -->
+            <div id="dtab-breakdown"></div>
+
+            <!-- Tab 2: Distance-Ordered POI Timeline -->
+            <div id="dtab-pois" style="display:none; flex-direction:column; gap:10px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span class="form-label">按路线行进里程排序</span>
+                <button type="button" id="btn-detail-add-poi" class="workbench-only icon-btn" style="font-size:11px; padding:3px 8px;">➕ 在鹰眼图选点新增</button>
+              </div>
+              <div class="poi-timeline" id="detail-poi-list"></div>
+            </div>
+
+            <!-- Tab 3: KML Quality Check -->
+            <div id="dtab-qc" style="display:none; flex-direction:column; gap:10px;"></div>
+
+            <!-- Tab 4: Metadata Editor & Exports -->
+            <div id="dtab-edit" style="display:none; flex-direction:column; gap:12px;">
+              <div class="export-bar" id="export-bar">
+                <span class="export-label" style="font-size:11px; color:var(--text-muted); white-space:nowrap;">导出轨迹</span>
+                <button type="button" class="export-btn export-kml-primary" data-export="kml">🧭 KML</button>
+                <button type="button" class="export-btn" data-export="gpx">⬇️ GPX</button>
+                <button type="button" class="export-btn" data-export="geojson">⬇️ GeoJSON</button>
+              </div>
+
+              <div id="poi-editor" class="poi-editor" style="display:none;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <strong style="font-size:12px;" id="poi-editor-title">编辑 POI</strong>
+                  <button type="button" id="btn-cancel-poi" style="flex:0 0 auto; padding:2px 7px; font-size:11px;">取消</button>
+                </div>
+                <div class="form-row-2">
+                  <div class="form-group">
+                    <label class="form-label">POI 名称</label>
+                    <input type="text" id="p-name" placeholder="如：热梯河营地" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">语义类型 (poi_kind)</label>
+                    <select id="p-kind"></select>
+                  </div>
+                </div>
+                <div class="form-row-2">
+                  <div class="form-group">
+                    <label class="form-label">经度 / 纬度</label>
+                    <input type="text" id="p-coords" readonly style="opacity:0.75; font-family:var(--mono); font-size:11px;" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">海拔 (m)</label>
+                    <input type="text" id="p-ele" placeholder="可选" />
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">POI 说明</label>
+                  <textarea id="p-desc" style="min-height:46px;" placeholder="营地容量、水源情况、路障说明..."></textarea>
+                </div>
+                <div style="display:flex; gap:8px;">
+                  <button type="button" class="btn-primary" id="btn-save-poi">保存 POI</button>
+                  <button type="button" class="btn-danger" id="btn-delete-poi" style="flex:0 0 auto;">删除</button>
+                </div>
+              </div>
+
+              <form id="meta-form" style="display:flex; flex-direction:column; gap:10px;">
+                <div class="form-group">
+                  <label class="form-label">唯一标识 (id)</label>
+                  <input type="text" id="f-id" readonly style="opacity:0.75; font-family:var(--mono); font-size:11px;" />
+                </div>
+
+                <div class="form-row-2">
+                  <div class="form-group">
+                    <label class="form-label">分类 (category)</label>
+                    <select id="f-category">
+                      <option value="offroad">offroad · 越野穿越</option>
+                      <option value="cycling">cycling · 自行车</option>
+                      <option value="hiking">hiking · 徒步</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">细分类型 (sub_type)</label>
+                    <input type="text" id="f-subtype" list="subtype-options" placeholder="如：穿越 / 公路 / 重装" />
+                    <datalist id="subtype-options"></datalist>
+                  </div>
+                </div>
+
+                <div class="form-row-2">
+                  <div class="form-group">
+                    <label class="form-label">地理大区/省市 (region)</label>
+                    <input type="text" id="f-region" placeholder="如：四川-甘孜" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">路线名称 (name)</label>
+                    <input type="text" id="f-name" placeholder="标准路线名称" />
+                  </div>
+                </div>
+
+                <div class="form-row-2">
+                  <div class="form-group">
+                    <label class="form-label">难度评级 (difficulty)</label>
+                    <input type="text" id="f-difficulty" list="difficulty-options" placeholder="选择或输入评级" />
+                    <datalist id="difficulty-options"></datalist>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">上榜年份 (year · 手选)</label>
+                    <input type="text" id="f-year" placeholder="可选，如 2026" />
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">打卡状态 (status)</label>
+                  <select id="f-status">
+                    <option value="collected">collected · 已收藏</option>
+                    <option value="verified">verified · 已核实</option>
+                    <option value="completed">completed · 已打卡</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">适行季节 (season)</label>
+                  <div class="season-grid" id="season-grid"></div>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">路线标注备注 (notes)</label>
+                  <textarea id="f-notes" placeholder="路况提醒、准入限制、车辆/装备建议..."></textarea>
+                </div>
+
+                <div style="display:flex; gap:8px;" class="workbench-only">
+                  <button type="submit" class="btn-primary" id="btn-save-meta">💾 保存标注</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </div>
+
+  <div id="toast"></div>
 
   <div id="drop-overlay">
     <div class="drop-overlay-card">

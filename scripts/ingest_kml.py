@@ -23,6 +23,12 @@ from typing import Any
 
 import yaml
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+import kml_qc  # noqa: E402
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 KMLS_DIR = ROOT_DIR / "kmls"
 INBOX_DIR = KMLS_DIR / "inbox"
@@ -32,7 +38,7 @@ SCHEMA_PATH = KMLS_DIR / "schema.yaml"
 CATALOG_PATH = KMLS_DIR / "catalog.json"
 
 SUPPORTED_EXTS = {".kml", ".kmz", ".gpx"}
-PRESERVED_FIELDS = ("region", "sub_type", "difficulty", "season", "status", "tags", "notes")
+PRESERVED_FIELDS = ("region", "sub_type", "difficulty", "season", "status", "year", "tags", "notes")
 IGNORED_DATA_KEYS = re.compile(r"(photo|image|img|pic|picture|icon|avatar|thumb|media)", re.IGNORECASE)
 IMG_URL_VALUE = re.compile(r"(\.(?:jpe?g|png|gif|webp|bmp)|^data:image/)", re.IGNORECASE)
 
@@ -51,6 +57,8 @@ KML_META_KEY_ALIASES: dict[str, str] = {
     "季节": "season",
     "status": "status",
     "状态": "status",
+    "year": "year",
+    "年份": "year",
     "tags": "tags",
     "标签": "tags",
     "notes": "notes",
@@ -158,11 +166,53 @@ def _parse_kml_coordinates(text: str | None) -> list[list[float]]:
     return coords
 
 
-def _parse_gx_coord_list(track_elem: ET.Element) -> list[list[float]]:
-    """Parse <gx:Track> child <gx:coord> ('lng lat ele') elements."""
+def _parse_gx_track_points(track_elem: ET.Element) -> tuple[list[list[float]], list[str | None], bool]:
+    """Parse <gx:Track> child <gx:coord> and <when> elements, keeping points and timestamps aligned."""
+    children = list(track_elem)
+    when_elems = [c for c in children if _local_tag(c.tag) == "when"]
+    coord_elems = [c for c in children if _local_tag(c.tag) == "coord"]
+    timestamp_mismatch = bool(when_elems) and (len(when_elems) != len(coord_elems))
+
+    paired: list[tuple[ET.Element, str | None]] = []
+    if not when_elems:
+        paired = [(c, None) for c in coord_elems]
+    elif len(when_elems) == len(coord_elems):
+        paired = [
+            (c, (w.text.strip() if w.text and w.text.strip() else None))
+            for c, w in zip(coord_elems, when_elems)
+        ]
+    else:
+        seen_coord = False
+        interleaved = False
+        for c in children:
+            t = _local_tag(c.tag)
+            if t == "coord":
+                seen_coord = True
+            elif t == "when" and seen_coord:
+                # If a <when> appears after a <coord> AND another <coord> follows later, it's interleaved
+                idx = children.index(c)
+                if any(_local_tag(nxt.tag) == "coord" for nxt in children[idx + 1:]):
+                    interleaved = True
+                    break
+        if interleaved:
+            pending_when: str | None = None
+            for c in children:
+                t = _local_tag(c.tag)
+                if t == "when":
+                    pending_when = c.text.strip() if c.text and c.text.strip() else None
+                elif t == "coord":
+                    paired.append((c, pending_when))
+                    pending_when = None
+        else:
+            for idx, c in enumerate(coord_elems):
+                w = when_elems[idx] if idx < len(when_elems) else None
+                t_str = w.text.strip() if (w is not None and w.text and w.text.strip()) else None
+                paired.append((c, t_str))
+
     coords: list[list[float]] = []
-    for child in track_elem:
-        if _local_tag(child.tag) != "coord" or not child.text:
+    times: list[str | None] = []
+    for child, t_str in paired:
+        if not child.text:
             continue
         parts = child.text.strip().split()
         if len(parts) < 2:
@@ -182,6 +232,15 @@ def _parse_gx_coord_list(track_elem: ET.Element) -> list[list[float]]:
             pos.append(round(ele, 2))
         if not coords or coords[-1][:2] != pos[:2]:
             coords.append(pos)
+            times.append(t_str)
+        elif t_str is not None:
+            times[-1] = t_str
+    return coords, times, timestamp_mismatch
+
+
+def _parse_gx_coord_list(track_elem: ET.Element) -> list[list[float]]:
+    """Parse <gx:Track> child <gx:coord> ('lng lat ele') elements."""
+    coords, _, _ = _parse_gx_track_points(track_elem)
     return coords
 
 
@@ -285,7 +344,7 @@ def _write_kml_document_meta(kml_path: Path, meta: dict[str, Any]) -> bool:
                 insert_idx = idx + 1
         doc_elem.insert(insert_idx, ext_elem)
 
-    managed_keys = ("category", "region", "sub_type", "difficulty", "season", "status", "tags", "notes")
+    managed_keys = ("category", "region", "sub_type", "difficulty", "season", "status", "year", "tags", "notes")
     managed_set = set(managed_keys)
     for child in list(ext_elem):
         if _local_tag(child.tag) == "Data":
@@ -331,11 +390,55 @@ def _sync_geojson_meta(geojson_path: Path, entry: dict[str, Any]) -> None:
     geojson_path.write_text(json.dumps(fc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+_AUTO_PHOTO_META_LINE = re.compile(r"^(?:经度|纬度|海拔|时间|lon|lat|ele|time)\s*[:：]", re.IGNORECASE)
+_PHOTO_TELEMETRY_KEYS = {
+    "type",
+    "serverid",
+    "postype",
+    "longitude",
+    "longtitude",
+    "latitude",
+    "altitude",
+    "speed",
+    "accuracy",
+    "time",
+    "timestamp",
+    "fileid",
+    "filesize",
+    "filetype",
+}
+
+
+def _is_pure_photo_placemark(
+    name: str,
+    style_url: str,
+    raw_desc: str,
+    clean_desc: str,
+    extra: dict[str, str],
+) -> bool:
+    """Return True if an unnamed Point Placemark is solely an embedded photo marker."""
+    if name:
+        return False
+    meaningful_extra = {k: v for k, v in extra.items() if k.strip().lower() not in _PHOTO_TELEMETRY_KEYS}
+    if meaningful_extra:
+        return False
+    style_l = style_url.lower()
+    has_photo_style = "picture" in style_l or "photo" in style_l
+    has_raw_img = bool(re.search(r"<img\b|data:image/", raw_desc, re.IGNORECASE))
+    if not has_photo_style and not has_raw_img:
+        return False
+    meaningful_lines = [
+        ln for ln in clean_desc.splitlines() if ln.strip() and not _AUTO_PHOTO_META_LINE.match(ln.strip())
+    ]
+    return not meaningful_lines
+
+
 def _extract_kml_features(
     root: ET.Element,
     route_id: str,
     category: str,
     poi_kinds: dict[str, Any],
+    qc_segments: list[dict[str, Any]] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Extract route LineStrings and POI Points from a KML root element."""
     routes: list[dict[str, Any]] = []
@@ -347,19 +450,26 @@ def _extract_kml_features(
             continue
 
         name = ""
+        raw_desc = ""
         description = ""
+        style_url = ""
         for child in elem:
             ctag = _local_tag(child.tag)
             if ctag == "name" and child.text:
                 name = child.text.strip()
             elif ctag == "description" and child.text:
+                raw_desc = child.text
                 description = _clean_description(child.text)
+            elif ctag == "styleUrl" and child.text:
+                style_url = child.text.strip()
 
         extra = _extract_extended_data(elem)
 
         for geom in elem.iter():
             gtag = _local_tag(geom.tag)
             if gtag == "Point":
+                if _is_pure_photo_placemark(name, style_url, raw_desc, description, extra):
+                    continue
                 coord_elem = next((c for c in geom if _local_tag(c.tag) == "coordinates"), None)
                 pts = _parse_kml_coordinates(coord_elem.text if coord_elem is not None else "")
                 if not pts:
@@ -392,12 +502,13 @@ def _extract_kml_features(
                 line = _parse_kml_coordinates(coord_elem.text if coord_elem is not None else "")
                 if len(line) >= 2:
                     seg_idx += 1
+                    seg_name = name or f"轨迹段 {seg_idx}"
                     props = {
                         "feature_type": "route",
                         "route_id": route_id,
                         "category": category,
                         "segment_index": seg_idx,
-                        "name": name or f"轨迹段 {seg_idx}",
+                        "name": seg_name,
                     }
                     if description:
                         props["description"] = description
@@ -408,17 +519,22 @@ def _extract_kml_features(
                             "properties": props,
                         }
                     )
+                    if qc_segments is not None:
+                        qc_segments.append(
+                            {"segment_index": seg_idx, "name": seg_name, "points": line, "times": []}
+                        )
 
             elif gtag == "Track":
-                line = _parse_gx_coord_list(geom)
+                line, times, ts_mismatch = _parse_gx_track_points(geom)
                 if len(line) >= 2:
                     seg_idx += 1
+                    seg_name = name or f"轨迹段 {seg_idx}"
                     props = {
                         "feature_type": "route",
                         "route_id": route_id,
                         "category": category,
                         "segment_index": seg_idx,
-                        "name": name or f"轨迹段 {seg_idx}",
+                        "name": seg_name,
                     }
                     if description:
                         props["description"] = description
@@ -429,11 +545,21 @@ def _extract_kml_features(
                             "properties": props,
                         }
                     )
+                    if qc_segments is not None:
+                        qc_segments.append(
+                            {
+                                "segment_index": seg_idx,
+                                "name": seg_name,
+                                "points": line,
+                                "times": times,
+                                "timestamp_mismatch": ts_mismatch,
+                            }
+                        )
 
     return routes, pois
 
 
-def _extract_gpx_point(pt_elem: ET.Element) -> list[float] | None:
+def _extract_gpx_point_with_time(pt_elem: ET.Element) -> tuple[list[float], str | None] | None:
     try:
         lat = float(pt_elem.attrib["lat"])
         lng = float(pt_elem.attrib["lon"])
@@ -442,16 +568,24 @@ def _extract_gpx_point(pt_elem: ET.Element) -> list[float] | None:
     if not (-180.0 <= lng <= 180.0 and -90.0 <= lat <= 90.0):
         return None
     pos = [round(lng, 6), round(lat, 6)]
+    time_str: str | None = None
     for child in pt_elem:
-        if _local_tag(child.tag) == "ele" and child.text:
+        ctag = _local_tag(child.tag)
+        if ctag == "ele" and child.text:
             try:
                 ele = float(child.text.strip())
                 if math.isfinite(ele):
                     pos.append(round(ele, 2))
             except ValueError:
                 pass
-            break
-    return pos
+        elif ctag == "time" and child.text and child.text.strip():
+            time_str = child.text.strip()
+    return pos, time_str
+
+
+def _extract_gpx_point(pt_elem: ET.Element) -> list[float] | None:
+    parsed = _extract_gpx_point_with_time(pt_elem)
+    return parsed[0] if parsed else None
 
 
 def _extract_gpx_features(
@@ -459,6 +593,7 @@ def _extract_gpx_features(
     route_id: str,
     category: str,
     poi_kinds: dict[str, Any],
+    qc_segments: list[dict[str, Any]] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Extract route LineStrings and waypoint POIs from a GPX root element."""
     routes: list[dict[str, Any]] = []
@@ -507,25 +642,37 @@ def _extract_gpx_features(
             pt_tag = "trkpt" if tag == "trk" else "rtept"
             for seg in segments:
                 line: list[list[float]] = []
+                times: list[str | None] = []
                 for child in seg:
                     if _local_tag(child.tag) == pt_tag:
-                        pos = _extract_gpx_point(child)
-                        if pos and (not line or line[-1][:2] != pos[:2]):
+                        parsed = _extract_gpx_point_with_time(child)
+                        if not parsed:
+                            continue
+                        pos, t_str = parsed
+                        if not line or line[-1][:2] != pos[:2]:
                             line.append(pos)
+                            times.append(t_str)
+                        elif t_str is not None:
+                            times[-1] = t_str
                 if len(line) >= 2:
                     seg_idx += 1
+                    seg_name = base_name or f"轨迹段 {seg_idx}"
                     props = {
                         "feature_type": "route",
                         "route_id": route_id,
                         "category": category,
                         "segment_index": seg_idx,
-                        "name": base_name or f"轨迹段 {seg_idx}",
+                        "name": seg_name,
                     }
                     if base_desc:
                         props["description"] = base_desc
                     routes.append(
                         {"type": "Feature", "geometry": {"type": "LineString", "coordinates": line}, "properties": props}
                     )
+                    if qc_segments is not None:
+                        qc_segments.append(
+                            {"segment_index": seg_idx, "name": seg_name, "points": line, "times": times}
+                        )
 
     return routes, pois
 
@@ -540,13 +687,30 @@ def _haversine_km(p1: list[float], p2: list[float]) -> float:
     return 2.0 * r_km * math.asin(min(1.0, math.sqrt(a)))
 
 
+def _downsample_profile(values: list[float], max_points: int = 32) -> list[int]:
+    """Uniformly downsample elevation values to a compact integer array for sparklines."""
+    if not values:
+        return []
+    n = len(values)
+    if n <= max_points:
+        return [int(round(v)) for v in values]
+    out: list[int] = []
+    step = (n - 1) / (max_points - 1)
+    for i in range(max_points):
+        idx = min(n - 1, int(round(i * step)))
+        out.append(int(round(values[idx])))
+    return out
+
+
 def _compute_metrics(
     route_features: list[dict[str, Any]],
     poi_features: list[dict[str, Any]],
 ) -> dict[str, Any]:
     total_km = 0.0
     gain_m = 0.0
+    loss_m = 0.0
     eles: list[float] = []
+    route_eles: list[float] = []
     lngs: list[float] = []
     lats: list[float] = []
 
@@ -561,12 +725,14 @@ def _compute_metrics(
             if len(pos) >= 3:
                 ele = pos[2]
                 eles.append(ele)
+                route_eles.append(ele)
                 if last_ele is None:
                     last_ele = ele
                 elif ele - last_ele >= 3.0:
                     gain_m += ele - last_ele
                     last_ele = ele
                 elif last_ele - ele >= 3.0:
+                    loss_m += last_ele - ele
                     last_ele = ele
 
     for feat in poi_features:
@@ -584,8 +750,10 @@ def _compute_metrics(
     return {
         "distance_km": round(total_km, 2),
         "elevation_gain_m": int(round(gain_m)) if eles else None,
+        "elevation_loss_m": int(round(loss_m)) if eles else None,
         "max_ele_m": int(round(max(eles))) if eles else None,
         "min_ele_m": int(round(min(eles))) if eles else None,
+        "ele_profile_preview": _downsample_profile(route_eles, 32),
         "bbox": bbox,
         "segments_count": len(route_features),
         "waypoints_count": len(poi_features),
@@ -629,16 +797,18 @@ def ingest_file(
     root = _read_xml_from_source(raw_file)
     is_gpx = _local_tag(root.tag).lower() == "gpx"
     doc_meta = {} if is_gpx else _extract_kml_document_meta(root)
+    qc_segments: list[dict[str, Any]] = []
     if is_gpx:
-        routes, pois = _extract_gpx_features(root, route_id, category, poi_kinds)
+        routes, pois = _extract_gpx_features(root, route_id, category, poi_kinds, qc_segments=qc_segments)
     else:
-        routes, pois = _extract_kml_features(root, route_id, category, poi_kinds)
+        routes, pois = _extract_kml_features(root, route_id, category, poi_kinds, qc_segments=qc_segments)
 
     if not routes and not pois:
         raise ValueError(f"No valid LineString or Point geometries found in: {raw_file}")
 
     region = folder_region or doc_meta.get("region", "")
     metrics = _compute_metrics(routes, pois)
+    qc_report = kml_qc.inspect_segments(qc_segments, category=category)
     out_geojson = normalized_root.joinpath(*parts[:-1], f"{stem}.geojson")
     out_geojson.parent.mkdir(parents=True, exist_ok=True)
 
@@ -657,6 +827,7 @@ def ingest_file(
             "name": stem,
             **doc_extra,
             **metrics,
+            "qc": qc_report,
         },
         "features": routes + pois,
     }
@@ -671,6 +842,8 @@ def ingest_file(
         "geojson_file": out_geojson.relative_to(raw_root.parent).as_posix(),
         **doc_extra,
         **metrics,
+        "qc_status": qc_report["status"],
+        "qc_issues_count": qc_report["issues_count"],
         "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
 
@@ -776,11 +949,13 @@ def preview_inbox_file(
     route_id = f"inbox__{src.stem}"
     is_gpx = _local_tag(root.tag).lower() == "gpx"
     doc_meta = {} if is_gpx else _extract_kml_document_meta(root)
+    qc_segments: list[dict[str, Any]] = []
     if is_gpx:
-        routes, pois = _extract_gpx_features(root, route_id, "inbox", poi_kinds)
+        routes, pois = _extract_gpx_features(root, route_id, "inbox", poi_kinds, qc_segments=qc_segments)
     else:
-        routes, pois = _extract_kml_features(root, route_id, "inbox", poi_kinds)
+        routes, pois = _extract_kml_features(root, route_id, "inbox", poi_kinds, qc_segments=qc_segments)
     metrics = _compute_metrics(routes, pois)
+    qc_report = kml_qc.inspect_segments(qc_segments, category=doc_meta.get("category"))
     extra_props = {k: v for k, v in doc_meta.items() if k != "category"}
     if "category" in doc_meta:
         extra_props["suggested_category"] = doc_meta["category"]
@@ -793,9 +968,33 @@ def preview_inbox_file(
             "name": src.stem,
             **extra_props,
             **metrics,
+            "qc": qc_report,
         },
         "features": routes + pois,
     }
+
+
+def qc_route_file(
+    file_path: Path,
+    category: str | None = None,
+    thresholds: dict[str, Any] | None = None,
+    schema_path: Path = SCHEMA_PATH,
+) -> dict[str, Any]:
+    """Parse a raw KML/KMZ/GPX file and run quality checks with optional category/threshold overrides."""
+    if not file_path.exists() or not file_path.is_file():
+        raise FileNotFoundError(f"Route file not found: {file_path}")
+    schema = _load_schema(schema_path)
+    poi_kinds = schema.get("poi_kinds") or {}
+    root = _read_xml_from_source(file_path)
+    is_gpx = _local_tag(root.tag).lower() == "gpx"
+    doc_meta = {} if is_gpx else _extract_kml_document_meta(root)
+    effective_cat = category or doc_meta.get("category")
+    qc_segments: list[dict[str, Any]] = []
+    if is_gpx:
+        _extract_gpx_features(root, file_path.stem, effective_cat or "inbox", poi_kinds, qc_segments=qc_segments)
+    else:
+        _extract_kml_features(root, file_path.stem, effective_cat or "inbox", poi_kinds, qc_segments=qc_segments)
+    return kml_qc.inspect_segments(qc_segments, category=effective_cat, thresholds=thresholds)
 
 
 def classify_inbox_file(
@@ -1057,11 +1256,15 @@ def inspect_inbox(
         rel = fpath.relative_to(inbox_root).as_posix()
         try:
             root = _read_xml_from_source(fpath)
-            if _local_tag(root.tag).lower() == "gpx":
-                routes, pois = _extract_gpx_features(root, fpath.stem, "inbox", poi_kinds)
+            qc_segments: list[dict[str, Any]] = []
+            is_gpx = _local_tag(root.tag).lower() == "gpx"
+            doc_meta = {} if is_gpx else _extract_kml_document_meta(root)
+            if is_gpx:
+                routes, pois = _extract_gpx_features(root, fpath.stem, "inbox", poi_kinds, qc_segments=qc_segments)
             else:
-                routes, pois = _extract_kml_features(root, fpath.stem, "inbox", poi_kinds)
+                routes, pois = _extract_kml_features(root, fpath.stem, "inbox", poi_kinds, qc_segments=qc_segments)
             metrics = _compute_metrics(routes, pois)
+            qc_report = kml_qc.inspect_segments(qc_segments, category=doc_meta.get("category"))
             descriptions = []
             for feat in routes + pois:
                 desc = feat["properties"].get("description", "")
@@ -1074,6 +1277,8 @@ def inspect_inbox(
                     "file": rel,
                     "name": fpath.stem,
                     **metrics,
+                    "qc_status": qc_report["status"],
+                    "qc_issues_count": qc_report["issues_count"],
                     "route_names": [f["properties"]["name"] for f in routes[:10]],
                     "poi_names": [f["properties"]["name"] for f in pois[:20]],
                     "sample_descriptions": descriptions,
@@ -1092,11 +1297,29 @@ def main() -> int:
         action="store_true",
         help="Inspect unsorted files in kmls/inbox/ and output clean JSON summaries for AI classification.",
     )
+    parser.add_argument(
+        "--qc",
+        action="store_true",
+        help="Run quality checks across all raw and inbox KML/KMZ/GPX files and print a JSON/text report.",
+    )
     args = parser.parse_args()
 
     if args.inspect_inbox:
         items = inspect_inbox()
         print(json.dumps({"pending_count": len(items), "items": items}, ensure_ascii=False, indent=2))
+        return 0
+
+    if args.qc:
+        reports = []
+        for label, base in (("raw", RAW_DIR), ("inbox", INBOX_DIR)):
+            if not base.exists():
+                continue
+            for fpath in sorted(p for p in base.rglob("*") if p.is_file() and p.suffix.lower() in SUPPORTED_EXTS):
+                rel = fpath.relative_to(base).as_posix()
+                cat = fpath.relative_to(base).parts[0] if label == "raw" and len(fpath.relative_to(base).parts) >= 2 else None
+                qc = qc_route_file(fpath, category=cat)
+                reports.append({"source": label, "file": rel, "category": cat, "qc": qc})
+        print(json.dumps({"checked": len(reports), "items": reports}, ensure_ascii=False, indent=2))
         return 0
 
     catalog = sync_catalog(prune=args.prune)

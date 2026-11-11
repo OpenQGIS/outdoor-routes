@@ -1,0 +1,205 @@
+/* ================= PAGE 1: HOME PORTAL ================= */
+#view-home {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 24px;
+  overflow-y: auto;
+}
+
+#home-contour-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.home-content {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 1120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+}
+
+.home-hero {
+  text-align: center;
+  max-width: 720px;
+}
+
+.home-hero-title {
+  font-size: clamp(26px, 3.6vw, 40px);
+  font-weight: 800;
+  color: #f8fafc;
+  letter-spacing: -0.02em;
+  line-height: 1.18;
+}
+
+.home-hero-sub {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #94a3b8;
+  font-family: var(--mono);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.home-hero-sub strong {
+  color: #e2e8f0;
+  font-weight: 700;
+}
+
+.portal-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.portal-card {
+  position: relative;
+  text-align: left;
+  background: rgba(18, 22, 29, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 26px 24px 24px;
+  min-height: 270px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.portal-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--card-accent, var(--accent));
+}
+
+.portal-card:hover {
+  transform: translateY(-4px);
+  background: rgba(22, 28, 37, 0.94);
+  border-color: var(--card-accent, var(--accent));
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+}
+
+.portal-card[data-cat="offroad"] { --card-accent: var(--cat-offroad); }
+.portal-card[data-cat="cycling"] { --card-accent: var(--cat-cycling); }
+.portal-card[data-cat="hiking"] { --card-accent: var(--cat-hiking); }
+
+.portal-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.portal-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.portal-en {
+  font-size: 11px;
+  font-family: var(--mono);
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+
+.portal-title {
+  margin-top: 16px;
+  font-size: 24px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.portal-desc {
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+.portal-stats {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.portal-stat-val {
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.portal-stat-lbl {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.portal-cta {
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--card-accent, #fff);
+}
+
+.home-bottom-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.home-sec-btn {
+  flex: 0 0 auto;
+  padding: 9px 18px;
+  border-radius: 999px;
+  background: rgba(18, 22, 29, 0.85);
+  border: 1px solid var(--border-strong);
+  color: #e2e8f0;
+  font-size: 13px;
+  font-weight: 600;
+  backdrop-filter: blur(8px);
+}
+
+.home-sec-btn:hover {
+  border-color: var(--accent);
+  background: rgba(31, 111, 235, 0.16);
+}
+
+@media (max-width: 900px) {
+  .portal-grid { grid-template-columns: 1fr; }
+  .portal-card { min-height: 190px; }
+}

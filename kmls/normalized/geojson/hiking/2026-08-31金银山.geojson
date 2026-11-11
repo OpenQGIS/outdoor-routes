@@ -7,8 +7,43 @@
     "status": "collected",
     "distance_km": 51.5,
     "elevation_gain_m": 3926,
-    "max_ele_m": 6199,
+    "elevation_loss_m": 4359,
+    "max_ele_m": 6198,
     "min_ele_m": 2690,
+    "ele_profile_preview": [
+      3251,
+      3226,
+      3186,
+      3141,
+      3108,
+      3101,
+      3101,
+      3143,
+      3066,
+      2964,
+      2868,
+      2779,
+      2702,
+      2834,
+      3076,
+      3390,
+      3643,
+      3876,
+      4228,
+      4790,
+      5376,
+      5924,
+      5920,
+      5345,
+      4797,
+      4294,
+      3953,
+      3705,
+      3475,
+      3194,
+      2922,
+      2710
+    ],
     "bbox": [
       101.771525,
       29.414573,
@@ -16,7 +51,31 @@
       29.523539
     ],
     "segments_count": 9,
-    "waypoints_count": 28
+    "waypoints_count": 5,
+    "qc": {
+      "status": "passed",
+      "has_timestamps": true,
+      "total_points": 4961,
+      "timed_points": 4961,
+      "issues_count": 0,
+      "error_count": 0,
+      "warning_count": 0,
+      "by_type": {},
+      "max_speed_kmh": 21.1,
+      "max_step_dist_m": 19.7,
+      "thresholds": {
+        "max_speed_kmh": 35.0,
+        "min_jump_dist_m": 30.0,
+        "zero_dt_dist_m": 50.0,
+        "short_time_s": 5.0,
+        "short_time_dist_m": 150.0,
+        "max_gap_m": 5000.0,
+        "spike_dist_m": 150.0,
+        "max_ele_rate_ms": 15.0
+      },
+      "issues": [],
+      "truncated": false
+    }
   },
   "features": [
     {
@@ -25002,230 +25061,6 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          101.837181,
-          29.482966,
-          3095.08
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "hiking__2026-08-31金银山",
-        "category": "hiking",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "ele": 3095.08,
-        "attributes": {
-          "PosType": "0",
-          "Speed": "0.97",
-          "Accuracy": "3.7900925",
-          "Time": "1788154603987",
-          "FileId": "1676354087",
-          "FileSize": "901004",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          101.84163,
-          29.474629,
-          3093.2
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "hiking__2026-08-31金银山",
-        "category": "hiking",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "ele": 3093.2,
-        "attributes": {
-          "PosType": "0",
-          "Speed": "0.0",
-          "Accuracy": "9.935046",
-          "Time": "1788156033972",
-          "FileId": "1676354086",
-          "FileSize": "737458",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          101.882599,
-          29.448904,
-          2931.02
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "hiking__2026-08-31金银山",
-        "category": "hiking",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "ele": 2931.02,
-        "attributes": {
-          "PosType": "0",
-          "Speed": "0.0",
-          "Accuracy": "9.935046",
-          "Time": "1788163046016",
-          "FileId": "1676354084",
-          "FileSize": "1138468",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          101.90674,
-          29.414573,
-          2702.05
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "hiking__2026-08-31金银山",
-        "category": "hiking",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "ele": 2702.05,
-        "attributes": {
-          "PosType": "0",
-          "Speed": "0.0",
-          "Accuracy": "3.7900925",
-          "Time": "1788229280068",
-          "FileId": "1676354082",
-          "FileSize": "1587223",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          101.908304,
-          29.415424,
-          2711.08
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "hiking__2026-08-31金银山",
-        "category": "hiking",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "ele": 2711.08,
-        "attributes": {
-          "PosType": "0",
-          "Speed": "0.8",
-          "Accuracy": "9.935046",
-          "Time": "1788231183082",
-          "FileId": "1676354078",
-          "FileSize": "1600411",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          101.913726,
-          29.450257,
-          3423.98
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "hiking__2026-08-31金银山",
-        "category": "hiking",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "ele": 3423.98,
-        "attributes": {
-          "PosType": "0",
-          "Speed": "0.56",
-          "Accuracy": "4.3204727",
-          "Time": "1788243469142",
-          "FileId": "1676354077",
-          "FileSize": "1502514",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          101.919343,
-          29.458834,
-          3606.94
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "hiking__2026-08-31金银山",
-        "category": "hiking",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "ele": 3606.94,
-        "attributes": {
-          "PosType": "0",
-          "Speed": "0.84",
-          "Accuracy": "3.7900925",
-          "Time": "1788247192159",
-          "FileId": "1676354074",
-          "FileSize": "983106",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          101.919343,
-          29.458834,
-          3606.94
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "hiking__2026-08-31金银山",
-        "category": "hiking",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "ele": 3606.94,
-        "attributes": {
-          "PosType": "0",
-          "Speed": "0.84",
-          "Accuracy": "3.7900925",
-          "Time": "1788247192159",
-          "FileId": "1676353970",
-          "FileSize": "896705",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
           101.920552,
           29.462352,
           3676.4
@@ -25245,174 +25080,6 @@
           "Time": "1788248268147",
           "FileId": "1676353966",
           "FileSize": "333587",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          101.921071,
-          29.464408,
-          3710.18
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "hiking__2026-08-31金银山",
-        "category": "hiking",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "ele": 3710.18,
-        "attributes": {
-          "PosType": "0",
-          "Speed": "0.0",
-          "Accuracy": "3.957034",
-          "Time": "1788311934551",
-          "FileId": "1676353963",
-          "FileSize": "761963",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          101.921071,
-          29.464408,
-          3710.18
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "hiking__2026-08-31金银山",
-        "category": "hiking",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "ele": 3710.18,
-        "attributes": {
-          "PosType": "0",
-          "Speed": "0.0",
-          "Accuracy": "3.957034",
-          "Time": "1788311934551",
-          "FileId": "1676353961",
-          "FileSize": "509039",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          101.920625,
-          29.48903,
-          4365.77
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "hiking__2026-08-31金银山",
-        "category": "hiking",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "ele": 4365.77,
-        "attributes": {
-          "PosType": "0",
-          "Speed": "0.93",
-          "Accuracy": "9.935046",
-          "Time": "1788321862608",
-          "FileId": "1676353959",
-          "FileSize": "367164",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          101.920626,
-          29.489022,
-          4366.03
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "hiking__2026-08-31金银山",
-        "category": "hiking",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "ele": 4366.03,
-        "attributes": {
-          "PosType": "0",
-          "Speed": "0.0",
-          "Accuracy": "9.935046",
-          "Time": "1788321868614",
-          "FileId": "1676353956",
-          "FileSize": "720321",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          101.92011,
-          29.491292,
-          4515.57
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "hiking__2026-08-31金银山",
-        "category": "hiking",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "ele": 4515.57,
-        "attributes": {
-          "PosType": "0",
-          "Speed": "0.49",
-          "Accuracy": "3.7900925",
-          "Time": "1788323620622",
-          "FileId": "1676353955",
-          "FileSize": "361125",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          101.917338,
-          29.499167,
-          4839.78
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "hiking__2026-08-31金银山",
-        "category": "hiking",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "ele": 4839.78,
-        "attributes": {
-          "PosType": "0",
-          "Speed": "0.0",
-          "Accuracy": "4.5597124",
-          "Time": "1788329648639",
-          "FileId": "1676353951",
-          "FileSize": "1482788",
           "FileType": "0"
         }
       }
@@ -25450,62 +25117,6 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          101.920046,
-          29.501959,
-          4942.63
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "hiking__2026-08-31金银山",
-        "category": "hiking",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "ele": 4942.63,
-        "attributes": {
-          "PosType": "0",
-          "Speed": "0.0",
-          "Accuracy": "9.935046",
-          "Time": "1788403073190",
-          "FileId": "1676353947",
-          "FileSize": "1191671",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          101.920046,
-          29.501959,
-          4942.63
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "hiking__2026-08-31金银山",
-        "category": "hiking",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "ele": 4942.63,
-        "attributes": {
-          "PosType": "0",
-          "Speed": "0.0",
-          "Accuracy": "9.935046",
-          "Time": "1788403073190",
-          "FileId": "1676353945",
-          "FileSize": "1301100",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
           101.922674,
           29.50286,
           5077.96
@@ -25525,202 +25136,6 @@
           "Time": "1788407285195",
           "FileId": "1676353942",
           "FileSize": "497837",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          101.925082,
-          29.503091,
-          5244.83
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "hiking__2026-08-31金银山",
-        "category": "hiking",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "ele": 5244.83,
-        "attributes": {
-          "PosType": "0",
-          "Speed": "0.0",
-          "Accuracy": "3.7900925",
-          "Time": "1788416677243",
-          "FileId": "1676353939",
-          "FileSize": "552601",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          101.925081,
-          29.5031,
-          5244.42
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "hiking__2026-08-31金银山",
-        "category": "hiking",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "ele": 5244.42,
-        "attributes": {
-          "PosType": "0",
-          "Speed": "0.0",
-          "Accuracy": "3.7900925",
-          "Time": "1788416681237",
-          "FileId": "1676353936",
-          "FileSize": "733726",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          101.926501,
-          29.506657,
-          5442.28
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "hiking__2026-08-31金银山",
-        "category": "hiking",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "ele": 5442.28,
-        "attributes": {
-          "PosType": "0",
-          "Speed": "0.42",
-          "Accuracy": "3.7900925",
-          "Time": "1788423802273",
-          "FileId": "1676353933",
-          "FileSize": "617016",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          101.927249,
-          29.509765,
-          5503.37
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "hiking__2026-08-31金银山",
-        "category": "hiking",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "ele": 5503.37,
-        "attributes": {
-          "PosType": "0",
-          "Speed": "0.25",
-          "Accuracy": "8.296349",
-          "Time": "1788460271475",
-          "FileId": "1676353928",
-          "FileSize": "236955",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          101.923434,
-          29.520373,
-          6080.23
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "hiking__2026-08-31金银山",
-        "category": "hiking",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "ele": 6080.23,
-        "attributes": {
-          "PosType": "0",
-          "Speed": "0.38",
-          "Accuracy": "3.7900925",
-          "Time": "1788475499598",
-          "FileId": "1676353926",
-          "FileSize": "399827",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          101.923434,
-          29.520373,
-          6080.23
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "hiking__2026-08-31金银山",
-        "category": "hiking",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "ele": 6080.23,
-        "attributes": {
-          "PosType": "0",
-          "Speed": "0.38",
-          "Accuracy": "3.7900925",
-          "Time": "1788475499598",
-          "FileId": "1676353924",
-          "FileSize": "340807",
-          "FileType": "0"
-        }
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          101.925822,
-          29.522377,
-          6198.57
-        ]
-      },
-      "properties": {
-        "feature_type": "poi",
-        "route_id": "hiking__2026-08-31金银山",
-        "category": "hiking",
-        "name": "未命名路点",
-        "poi_kind": "waypoint",
-        "ele": 6198.57,
-        "attributes": {
-          "PosType": "0",
-          "Speed": "0.0",
-          "Accuracy": "3.7900925",
-          "Time": "1788478438617",
-          "FileId": "1676353871",
-          "FileSize": "635065",
           "FileType": "0"
         }
       }
