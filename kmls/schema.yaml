@@ -1,0 +1,54 @@
+version: 1
+description: "KML 户外路线收藏库规范：仅保留路线几何（LineString）与 POI 点位（Point），自动剥离所有图片与冗余样式。"
+
+categories:
+  offroad:
+    label: "越野穿越"
+    color: "#E85D04"
+    line_width: 3.5
+    sub_types: ["穿越", "无人区", "沙漠", "林道", "涉水", "冰雪"]
+    difficulty_levels: ["素车可过", "轻度改装", "重度改装", "极限探险"]
+  cycling:
+    label: "自行车"
+    color: "#0EA5E9"
+    line_width: 3.0
+    sub_types: ["公路", "山地XC", "砾石Gravel", "绿道", "长途"]
+    difficulty_levels: ["休闲", "进阶", "挑战", "虐线"]
+  hiking:
+    label: "徒步"
+    color: "#16A34A"
+    line_width: 2.5
+    sub_types: ["轻徒步", "重装", "古道", "高海拔", "环线"]
+    difficulty_levels: ["1星-入门", "2星-初级", "3星-进阶", "4星-高难", "5星-极限"]
+
+poi_kinds:
+  campground:
+    label: "营地"
+    keywords: ["营地", "扎营", "露营", "营", "camp", "campsite"]
+  water_source:
+    label: "水源"
+    keywords: ["水源", "补水", "泉眼", "山泉", "溪水", "取水", "water", "spring"]
+  pass:
+    label: "垭口"
+    keywords: ["垭口", "山口", "达坂", "梁子", "pass", "saddle", "col"]
+  peak:
+    label: "山峰"
+    keywords: ["山顶", "峰顶", "顶峰", "主峰", "顶", "peak", "summit"]
+  viewpoint:
+    label: "观景/打卡点"
+    keywords: ["观景", "打卡", "拍照", "摄影", "日出", "云海", "viewpoint", "scenic"]
+  fuel:
+    label: "补给/加油"
+    keywords: ["加油", "油站", "充电", "补给", "商店", "小卖部", "gas", "fuel", "supply"]
+  shelter:
+    label: "驿站/住宿"
+    keywords: ["保护站", "驿站", "客栈", "民宿", "木屋", "庇护所", "shelter", "hut", "inn"]
+  hazard:
+    label: "风险/路况"
+    keywords: ["塌方", "危险", "涉水", "炮弹坑", "碎石", "暗冰", "封路", "断桥", "落石", "泥泞", "hazard", "danger"]
+  parking:
+    label: "起终点/停车"
+    keywords: ["停车", "起点", "终点", "入口", "出口", "出发", "trailhead", "parking", "start", "end"]
+  waypoint:
+    label: "普通路点"
+    keywords: []

@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Outdoor Routes — 户外路线图鉴与标注工作台</title>
+  <link rel="stylesheet" href="./web/vendor/leaflet.css" />
+  <link rel="stylesheet" href="./web/css/base.css" />
+  <style>
+    body { overflow: hidden; }
+    #left-panel {
+      width: 340px;
+      min-width: 300px;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      z-index: 20;
+    }
+    .panel-header {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .panel-title { font-size: 14px; font-weight: 700; color: #fff; }
+    .nav-bar {
+      padding: 8px 12px;
+      background: rgba(0,0,0,0.25);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 6px;
+    }
+    .nav-link {
+      flex: 1;
+      text-align: center;
+      padding: 5px 4px;
+      border-radius: 4px;
+      font-size: 11.5px;
+      font-weight: 600;
+      text-decoration: none;
+      color: var(--text-muted);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+    }
+    .nav-link.active {
+      background: #1f6feb;
+      border-color: #388bfd;
+      color: #fff;
+    }
+    .basemap-bar {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .basemap-bar select { flex: 1; }
+    .tab-bar {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+    }
+    .tab-btn {
+      flex: 1;
+      border: none;
+      border-bottom: 2px solid transparent;
+      border-radius: 0;
+      background: transparent;
+      padding: 9px 6px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .tab-btn.active {
+      color: #fff;
+      border-bottom-color: var(--accent);
+      background: rgba(47, 129, 247, 0.08);
+    }
+    .filters-box {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .pill-row { display: flex; gap: 5px; flex-wrap: wrap; }
+    .pill {
+      padding: 3px 9px;
+      border-radius: 12px;
+      font-size: 11.5px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-muted);
+      cursor: pointer;
+      flex: 0 0 auto;
+    }
+    .pill.active {
+      background: rgba(47, 129, 247, 0.2);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .route-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .route-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .route-card:hover { background: var(--bg-hover); }
+    .route-card.selected {
+      border-color: var(--accent);
+      background: rgba(47, 129, 247, 0.12);
+    }
+    .route-card.cat-offroad { border-left-color: #E85D04; }
+    .route-card.cat-cycling { border-left-color: #0EA5E9; }
+    .route-card.cat-hiking { border-left-color: #16A34A; }
+    .route-card.cat-inbox { border-left-color: #d29922; }
+    .rc-title {
+      font-weight: 600;
+      font-size: 12.5px;
+      color: #fff;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+    }
+    .rc-meta {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-family: var(--mono);
+    }
+    .badge {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-family: var(--sans);
+      white-space: nowrap;
+    }
+    .badge.verified { color: #3fb950; border-color: rgba(63,185,80,0.4); }
+    .badge.completed { color: #58a6ff; border-color: rgba(88,166,255,0.4); }
+
+    #map-wrap {
+      flex: 1;
+      position: relative;
+      height: 100vh;
+      background: #0d0f12;
+    }
+    #map { width: 100%; height: 100%; }
+    #map.crosshair-mode { cursor: crosshair; }
+
+    .map-toolbar {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 500;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .map-tool-btn {
+      flex: 0 0 auto;
+      background: rgba(20, 22, 25, 0.92);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 6px 11px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+    }
+    .map-tool-btn.active {
+      background: #1f6feb;
+      border-color: #58a6ff;
+      color: #fff;
+    }
+
+    .hud-box {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      z-index: 500;
+      background: rgba(20, 22, 25, 0.88);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      gap: 12px;
+    }
+    .hud-box strong { color: #fff; }
+
+    #toast {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-10px);
+      z-index: 1000;
+      background: rgba(20, 22, 25, 0.95);
+      border: 1px solid var(--accent);
+      color: #fff;
+      padding: 7px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    #toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    #right-panel {
+      width: 370px;
+      min-width: 320px;
+      background: var(--bg-panel);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      z-index: 20;
+    }
+    #right-panel.hidden { display: none; }
+    .drawer-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+    }
+    .metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 6px 8px;
+    }
+    .metric-label { font-size: 10.5px; color: var(--text-muted); }
+    .metric-val { font-size: 13px; font-weight: 700; font-family: var(--mono); color: #fff; margin-top: 2px; }
+    .form-group { display: flex; flex-direction: column; gap: 4px; }
+    .form-label { font-size: 11.5px; color: var(--text-muted); font-weight: 600; }
+    .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    textarea {
+      background: var(--bg-card);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 6px 8px;
+      font-size: 12px;
+      font-family: var(--sans);
+      resize: vertical;
+      min-height: 62px;
+      outline: none;
+    }
+    textarea:focus { border-color: var(--accent); }
+    .season-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 4px;
+    }
+    .season-pill {
+      text-align: center;
+      padding: 3px 0;
+      font-size: 11px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-muted);
+      cursor: pointer;
+      user-select: none;
+    }
+    .season-pill.active {
+      background: rgba(47, 129, 247, 0.25);
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: 600;
+    }
+    .btn-primary {
+      background: #1f6feb;
+      border-color: #388bfd;
+      color: #fff;
+      font-weight: 600;
+    }
+    .btn-primary:hover { background: #2f81f7; }
+    .btn-danger {
+      background: rgba(248, 81, 73, 0.15);
+      border-color: rgba(248, 81, 73, 0.45);
+      color: #ff7b72;
+    }
+    .poi-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid var(--border);
+      padding-top: 10px;
+    }
+    .poi-list { display: flex; flex-direction: column; gap: 6px; }
+    .poi-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 7px 9px;
+      cursor: pointer;
+    }
+    .poi-item:hover { background: var(--bg-hover); }
+    .poi-item-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .poi-editor {
+      background: rgba(47, 129, 247, 0.08);
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .empty-hint {
+      text-align: center;
+      color: var(--text-muted);
+      padding: 28px 12px;
+      font-size: 12px;
+      line-height: 1.7;
+    }
+    .mode-badge {
+      font-size: 10.5px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(63, 185, 80, 0.14);
+      color: #7ee787;
+      white-space: nowrap;
+    }
+    body.readonly-mode .mode-badge {
+      background: rgba(56, 139, 253, 0.14);
+      color: #79c0ff;
+    }
+    body.readonly-mode .workbench-only {
+      display: none !important;
+    }
+    .export-bar {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px;
+    }
+    .export-bar .export-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      margin-right: 2px;
+    }
+    .export-btn {
+      padding: 4px 8px;
+      font-size: 11px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div id="file-proto-banner" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(13,15,18,0.96); color:#e6edf3; align-items:center; justify-content:center; padding:24px;">
+    <div style="max-width:520px; background:#141619; border:1px solid #2c313a; border-radius:10px; padding:22px 24px; line-height:1.7;">
+      <h2 style="font-size:16px; color:#fff; margin-bottom:10px;">需要通过本地服务打开路线标注工作台</h2>
+      <p style="font-size:13px; color:#8b949e; margin-bottom:12px;">浏览器安全策略限制直接以 <code>file://</code> 协议读取本地数据与写回 <code>catalog.json</code>。</p>
+      <p style="font-size:13px; color:#e6edf3; margin-bottom:14px;">请双击 <b>启动路线标注.bat</b>（或运行 <code>python server.py 8766</code>），然后访问：<br/><code style="color:#58a6ff;">http://127.0.0.1:8766/</code></p>
+      <a href="http://127.0.0.1:8766/" style="display:inline-block; padding:7px 14px; background:#1f6feb; color:#fff; border-radius:6px; text-decoration:none; font-weight:600; font-size:12.5px;">如果服务已启动，点击直接跳转 →</a>
+    </div>
+  </div>
+  <script>if (location.protocol === 'file:') { document.getElementById('file-proto-banner').style.display = 'flex'; }</script>
+  <aside id="left-panel">
+    <div class="panel-header">
+      <div style="display:flex; align-items:center; gap:6px; min-width:0;">
+        <div class="panel-title">📍 Outdoor Routes</div>
+        <span class="mode-badge" id="mode-badge">探测中...</span>
+      </div>
+      <button type="button" id="btn-sync-kmls" class="workbench-only" style="flex:0 0 auto; padding:4px 8px; font-size:11px;" title="扫描 kmls/raw 并刷新 catalog.json">🔄 扫描同步</button>
+    </div>
+
+    <div class="basemap-bar">
+      <select id="basemap-select" title="选择地图底图">
+        <option value="opentopomap" selected>⛰️ OpenTopoMap 地形等高线</option>
+        <option value="osm">🗺️ OpenStreetMap 标准</option>
+        <option value="cyclosm">🚴 CyclOSM 骑行与步道</option>
+        <option value="esri-sat">🛰️ Esri 卫星影像</option>
+        <option value="gaode-vec">🇨🇳 高德矢量地图 (国内直连)</option>
+        <option value="gaode-sat">🛰️ 高德卫星影像 (国内直连)</option>
+      </select>
+    </div>
+
+    <div class="tab-bar workbench-only">
+      <button type="button" class="tab-btn active" data-tab="catalog">已归档 (<span id="cnt-catalog">0</span>)</button>
+      <button type="button" class="tab-btn" data-tab="inbox">待分类 Inbox (<span id="cnt-inbox">0</span>)</button>
+    </div>
+
+    <div class="filters-box" id="catalog-filters">
+      <div class="pill-row" id="cat-pills">
+        <button type="button" class="pill active" data-cat="all">全部</button>
+        <button type="button" class="pill" data-cat="offroad">越野</button>
+        <button type="button" class="pill" data-cat="cycling">骑行</button>
+        <button type="button" class="pill" data-cat="hiking">徒步</button>
+      </div>
+      <div class="form-row-2">
+        <input type="text" id="search-input" placeholder="🔍 搜索名称 / 地区 / 备注..." />
+        <select id="status-filter">
+          <option value="all">全部状态</option>
+          <option value="collected">已收藏 (collected)</option>
+          <option value="verified">已核实 (verified)</option>
+          <option value="completed">已打卡 (completed)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="route-list" id="route-list"></div>
+  </aside>
+
+  <main id="map-wrap">
+    <div id="map"></div>
+    <div id="toast"></div>
+
+    <div class="map-toolbar">
+      <button type="button" class="map-tool-btn" id="btn-fit-route">🎯 定位当前路线</button>
+      <button type="button" class="map-tool-btn" id="btn-overlay-all">🗺️ 叠显筛选路线</button>
+      <button type="button" class="map-tool-btn workbench-only" id="btn-add-poi" title="开启后点击地图任意位置新增 POI 标注">➕ 点选新增 POI</button>
+    </div>
+
+    <div class="hud-box">
+      <span>Z: <strong id="hud-zoom">12.00</strong></span>
+      <span>Lat: <strong id="hud-lat">30.65860</strong></span>
+      <span>Lng: <strong id="hud-lng">104.06480</strong></span>
+    </div>
+  </main>
+
+  <aside id="right-panel" class="hidden">
+    <div class="panel-header">
+      <div class="panel-title" id="drawer-title">路线详情与标注</div>
+      <button type="button" id="btn-close-drawer" style="flex:0 0 auto; padding:3px 8px;">✕</button>
+    </div>
+
+    <div class="drawer-body">
+      <div class="metric-grid" id="route-metrics"></div>
+
+      <div class="export-bar" id="export-bar">
+        <span class="export-label">下载轨迹</span>
+        <button type="button" class="export-btn" data-export="gpx">⬇️ GPX</button>
+        <button type="button" class="export-btn" data-export="kml">⬇️ KML</button>
+        <button type="button" class="export-btn" data-export="geojson">⬇️ GeoJSON</button>
+      </div>
+
+      <form id="meta-form" style="display:flex; flex-direction:column; gap:10px;">
+        <div class="form-group">
+          <label class="form-label">唯一标识 (id) / 源文件</label>
+          <input type="text" id="f-id" readonly style="opacity:0.75; font-family:var(--mono); font-size:11px;" />
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label class="form-label">分类 (category)</label>
+            <select id="f-category">
+              <option value="offroad">offroad · 越野穿越</option>
+              <option value="cycling">cycling · 自行车</option>
+              <option value="hiking">hiking · 徒步</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">细分类型 (sub_type)</label>
+            <input type="text" id="f-subtype" list="subtype-options" placeholder="如：穿越 / 公路 / 重装" />
+            <datalist id="subtype-options"></datalist>
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label class="form-label">地理大区/省市 (region)</label>
+            <input type="text" id="f-region" placeholder="如：四川-甘孜" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">路线名称 (name)</label>
+            <input type="text" id="f-name" placeholder="标准路线名称" />
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label class="form-label">难度评级 (difficulty)</label>
+            <input type="text" id="f-difficulty" list="difficulty-options" placeholder="选择或输入评级" />
+            <datalist id="difficulty-options"></datalist>
+          </div>
+          <div class="form-group">
+            <label class="form-label">打卡状态 (status)</label>
+            <select id="f-status">
+              <option value="collected">collected · 已收藏</option>
+              <option value="verified">verified · 已核实</option>
+              <option value="completed">completed · 已打卡</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">适行季节 (season)</label>
+          <div class="season-grid" id="season-grid"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">路线标注备注 (notes)</label>
+          <textarea id="f-notes" placeholder="路况提醒、准入限制、车辆/装备建议..."></textarea>
+        </div>
+
+        <div style="display:flex; gap:8px;" class="workbench-only">
+          <button type="submit" class="btn-primary" id="btn-save-meta">💾 保存标注</button>
+        </div>
+      </form>
+
+      <div class="poi-section-header">
+        <span class="form-label" style="font-size:12px; color:#fff;">POI 路点标注 (<span id="poi-count">0</span>)</span>
+        <button type="button" id="btn-drawer-add-poi" class="workbench-only" style="flex:0 0 auto; padding:3px 8px; font-size:11px;">➕ 地图选点新增</button>
+      </div>
+
+      <div id="poi-editor" class="poi-editor" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong style="font-size:12px;" id="poi-editor-title">编辑 POI</strong>
+          <button type="button" id="btn-cancel-poi" style="flex:0 0 auto; padding:2px 7px; font-size:11px;">取消</button>
+        </div>
+        <div class="form-row-2">
+          <div class="form-group">
+            <label class="form-label">POI 名称</label>
+            <input type="text" id="p-name" placeholder="如：热梯河营地" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">语义类型 (poi_kind)</label>
+            <select id="p-kind"></select>
+          </div>
+        </div>
+        <div class="form-row-2">
+          <div class="form-group">
+            <label class="form-label">经度 / 纬度</label>
+            <input type="text" id="p-coords" readonly style="opacity:0.75; font-family:var(--mono); font-size:11px;" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">海拔 (m)</label>
+            <input type="text" id="p-ele" placeholder="可选" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">POI 说明</label>
+          <textarea id="p-desc" style="min-height:46px;" placeholder="营地容量、水源情况、路障说明..."></textarea>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="btn-primary" id="btn-save-poi">保存 POI</button>
+          <button type="button" class="btn-danger" id="btn-delete-poi" style="flex:0 0 auto;">删除</button>
+        </div>
+      </div>
+
+      <div class="poi-list" id="poi-list"></div>
+    </div>
+  </aside>
+
+  <script src="./web/vendor/leaflet.js"></script>
+  <script type="module" src="./web/js/kmls-app.js"></script>
+</body>
+</html>

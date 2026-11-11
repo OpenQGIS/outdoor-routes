@@ -1,0 +1,22 @@
+# Python / OS / Editor
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# KML route collection (keep schema, catalog, cleaned GeoJSON & .gitkeep; ignore raw/inbox files & images)
+kmls/inbox/**
+!kmls/inbox/.gitkeep
+kmls/raw/**
+!kmls/raw/*/
+!kmls/raw/*/.gitkeep
+kmls/**/*.jpg
+kmls/**/*.jpeg
+kmls/**/*.png
+kmls/**/*.gif
+kmls/**/*.webp
