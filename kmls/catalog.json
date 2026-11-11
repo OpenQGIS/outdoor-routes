@@ -1,13 +1,102 @@
 {
   "version": 1,
-  "updated_at": "2026-11-11T08:37:57+00:00",
+  "updated_at": "2026-11-11T09:02:41+00:00",
   "summary": {
-    "total": 0,
+    "total": 4,
     "by_category": {
-      "offroad": 0,
+      "offroad": 3,
       "cycling": 0,
-      "hiking": 0
+      "hiking": 1
     }
   },
-  "routes": []
+  "routes": [
+    {
+      "id": "hiking__2026-08-31金银山",
+      "category": "hiking",
+      "region": "",
+      "name": "2026-08-31金银山",
+      "raw_file": "hiking/2026-08-31金银山.kml",
+      "geojson_file": "normalized/geojson/hiking/2026-08-31金银山.geojson",
+      "status": "collected",
+      "distance_km": 51.5,
+      "elevation_gain_m": 3926,
+      "max_ele_m": 6199,
+      "min_ele_m": 2690,
+      "bbox": [
+        101.771525,
+        29.414573,
+        101.927312,
+        29.523539
+      ],
+      "segments_count": 9,
+      "waypoints_count": 28,
+      "updated_at": "2026-11-11T09:02:39+00:00"
+    },
+    {
+      "id": "offroad__伊鹤牧道2025-10-24",
+      "category": "offroad",
+      "region": "",
+      "name": "伊鹤牧道2025-10-24",
+      "raw_file": "offroad/伊鹤牧道2025-10-24.kml",
+      "geojson_file": "normalized/geojson/offroad/伊鹤牧道2025-10-24.geojson",
+      "status": "collected",
+      "distance_km": 131.54,
+      "elevation_gain_m": 3631,
+      "max_ele_m": 4684,
+      "min_ele_m": 2143,
+      "bbox": [
+        101.570653,
+        31.476321,
+        102.070791,
+        31.817462
+      ],
+      "segments_count": 1,
+      "waypoints_count": 2,
+      "updated_at": "2026-11-11T09:02:40+00:00"
+    },
+    {
+      "id": "offroad__伊鹤牧道A段",
+      "category": "offroad",
+      "region": "",
+      "name": "伊鹤牧道A段",
+      "raw_file": "offroad/伊鹤牧道A段.kml",
+      "geojson_file": "normalized/geojson/offroad/伊鹤牧道A段.geojson",
+      "status": "collected",
+      "distance_km": 52.31,
+      "elevation_gain_m": 2169,
+      "max_ele_m": 4379,
+      "min_ele_m": 2231,
+      "bbox": [
+        101.69396,
+        31.592641,
+        102.02442,
+        31.659251
+      ],
+      "segments_count": 1,
+      "waypoints_count": 8,
+      "updated_at": "2026-11-11T09:02:40+00:00"
+    },
+    {
+      "id": "offroad__伊鹤牧道B段",
+      "category": "offroad",
+      "region": "",
+      "name": "伊鹤牧道B段",
+      "raw_file": "offroad/伊鹤牧道B段.kml",
+      "geojson_file": "normalized/geojson/offroad/伊鹤牧道B段.geojson",
+      "status": "collected",
+      "distance_km": 61.58,
+      "elevation_gain_m": 1974,
+      "max_ele_m": 4674,
+      "min_ele_m": 2525,
+      "bbox": [
+        101.570626,
+        31.598065,
+        101.692131,
+        31.817379
+      ],
+      "segments_count": 1,
+      "waypoints_count": 2,
+      "updated_at": "2026-11-11T09:02:41+00:00"
+    }
+  ]
 }

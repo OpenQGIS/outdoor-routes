@@ -32,9 +32,40 @@ SCHEMA_PATH = KMLS_DIR / "schema.yaml"
 CATALOG_PATH = KMLS_DIR / "catalog.json"
 
 SUPPORTED_EXTS = {".kml", ".kmz", ".gpx"}
-PRESERVED_FIELDS = ("sub_type", "difficulty", "season", "status", "tags", "notes")
+PRESERVED_FIELDS = ("region", "sub_type", "difficulty", "season", "status", "tags", "notes")
 IGNORED_DATA_KEYS = re.compile(r"(photo|image|img|pic|picture|icon|avatar|thumb|media)", re.IGNORECASE)
 IMG_URL_VALUE = re.compile(r"(\.(?:jpe?g|png|gif|webp|bmp)|^data:image/)", re.IGNORECASE)
+
+KML_META_KEY_ALIASES: dict[str, str] = {
+    "category": "category",
+    "分类": "category",
+    "region": "region",
+    "地区": "region",
+    "sub_type": "sub_type",
+    "subtype": "sub_type",
+    "细分类型": "sub_type",
+    "difficulty": "difficulty",
+    "难度": "difficulty",
+    "season": "season",
+    "适行季节": "season",
+    "季节": "season",
+    "status": "status",
+    "状态": "status",
+    "tags": "tags",
+    "标签": "tags",
+    "notes": "notes",
+    "备注": "notes",
+}
+CATEGORY_ALIASES: dict[str, str] = {
+    "offroad": "offroad",
+    "越野": "offroad",
+    "越野穿越": "offroad",
+    "cycling": "cycling",
+    "骑行": "cycling",
+    "自行车": "cycling",
+    "hiking": "hiking",
+    "徒步": "hiking",
+}
 
 
 def _local_tag(tag: str) -> str:
@@ -174,6 +205,130 @@ def _extract_extended_data(placemark: ET.Element) -> dict[str, str]:
             if cleaned and not IMG_URL_VALUE.search(cleaned):
                 attrs[key] = cleaned
     return attrs
+
+
+def _parse_list_meta(raw_val: str) -> list[str]:
+    text = raw_val.strip()
+    if not text:
+        return []
+    if text.startswith("[") and text.endswith("]"):
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, list):
+                return [str(x).strip() for x in parsed if str(x).strip()]
+        except json.JSONDecodeError:
+            pass
+    return [seg.strip() for seg in re.split(r"[,，、;；]+", text) if seg.strip()]
+
+
+def _extract_kml_document_meta(root: ET.Element) -> dict[str, Any]:
+    """Extract route-level metadata from <Document><ExtendedData> (non-Placemark)."""
+    if _local_tag(root.tag) == "Document":
+        doc_elem = root
+    else:
+        doc_elem = next((c for c in root if _local_tag(c.tag) == "Document"), root)
+
+    raw_attrs: dict[str, str] = {}
+    for child in doc_elem:
+        if _local_tag(child.tag) == "ExtendedData":
+            raw_attrs.update(_extract_extended_data(child))
+
+    meta: dict[str, Any] = {}
+    for k, v in raw_attrs.items():
+        canonical = KML_META_KEY_ALIASES.get(k.strip().lower()) or KML_META_KEY_ALIASES.get(k.strip())
+        if not canonical or not v:
+            continue
+        if canonical == "category":
+            mapped = CATEGORY_ALIASES.get(v.strip().lower()) or CATEGORY_ALIASES.get(v.strip())
+            if mapped:
+                meta["category"] = mapped
+        elif canonical in ("season", "tags"):
+            items = _parse_list_meta(v)
+            if items:
+                meta[canonical] = items
+        else:
+            meta[canonical] = v.strip()
+    return meta
+
+
+def _write_kml_document_meta(kml_path: Path, meta: dict[str, Any]) -> bool:
+    """Embed route metadata into a .kml file's <Document><ExtendedData>."""
+    if kml_path.suffix.lower() != ".kml" or not kml_path.exists():
+        return False
+
+    root = _decode_xml_bytes(kml_path.read_bytes())
+    ns = root.tag[1:].split("}", 1)[0] if root.tag.startswith("{") else ""
+    if ns:
+        ET.register_namespace("", ns)
+    ET.register_namespace("gx", "http://www.google.com/kml/ext/2.2")
+
+    def qname(tag: str) -> str:
+        return f"{{{ns}}}{tag}" if ns else tag
+
+    if _local_tag(root.tag) == "Document":
+        doc_elem = root
+    else:
+        doc_elem = next((c for c in root if _local_tag(c.tag) == "Document"), None)
+        if doc_elem is None:
+            doc_elem = ET.Element(qname("Document"))
+            for child in list(root):
+                root.remove(child)
+                doc_elem.append(child)
+            root.append(doc_elem)
+
+    ext_elem = next((c for c in doc_elem if _local_tag(c.tag) == "ExtendedData"), None)
+    if ext_elem is None:
+        ext_elem = ET.Element(qname("ExtendedData"))
+        insert_idx = 0
+        for idx, child in enumerate(list(doc_elem)):
+            if _local_tag(child.tag) in ("name", "visibility", "open", "description"):
+                insert_idx = idx + 1
+        doc_elem.insert(insert_idx, ext_elem)
+
+    managed_keys = ("category", "region", "sub_type", "difficulty", "season", "status", "tags", "notes")
+    managed_set = set(managed_keys)
+    for child in list(ext_elem):
+        if _local_tag(child.tag) == "Data":
+            name_attr = (child.attrib.get("name") or "").strip()
+            canonical = KML_META_KEY_ALIASES.get(name_attr.lower()) or KML_META_KEY_ALIASES.get(name_attr)
+            if canonical in managed_set:
+                ext_elem.remove(child)
+
+    for key in managed_keys:
+        val = meta.get(key)
+        if isinstance(val, list):
+            val_str = ",".join(str(x).strip() for x in val if str(x).strip())
+        else:
+            val_str = str(val).strip() if val is not None else ""
+        if not val_str:
+            continue
+        data_el = ET.SubElement(ext_elem, qname("Data"), {"name": key})
+        val_el = ET.SubElement(data_el, qname("value"))
+        val_el.text = val_str
+
+    ET.indent(ext_elem, space="  ", level=2)
+    ext_elem.tail = "\n    "
+    xml_bytes = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+    kml_path.write_bytes(xml_bytes + b"\n")
+    return True
+
+
+def _sync_geojson_meta(geojson_path: Path, entry: dict[str, Any]) -> None:
+    """Keep top-level FeatureCollection properties synced with catalog entry metadata."""
+    if not geojson_path.exists():
+        return
+    fc = json.loads(geojson_path.read_text(encoding="utf-8"))
+    props = fc.setdefault("properties", {})
+    props["route_id"] = entry["id"]
+    props["category"] = entry["category"]
+    props["name"] = entry["name"]
+    for field in PRESERVED_FIELDS:
+        val = entry.get(field)
+        if val not in (None, "", []):
+            props[field] = val
+        else:
+            props.pop(field, None)
+    geojson_path.write_text(json.dumps(fc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def _extract_kml_features(
@@ -467,12 +622,14 @@ def ingest_file(
         raise ValueError(f"Raw file must be inside a category folder (offroad/cycling/hiking): {raw_file}")
 
     category = parts[0]
-    region = "/".join(parts[1:-1]) if len(parts) > 2 else ""
+    folder_region = "/".join(parts[1:-1]) if len(parts) > 2 else ""
     stem = raw_file.stem
     route_id = "__".join(parts[:-1] + (stem,))
 
     root = _read_xml_from_source(raw_file)
-    if _local_tag(root.tag).lower() == "gpx":
+    is_gpx = _local_tag(root.tag).lower() == "gpx"
+    doc_meta = {} if is_gpx else _extract_kml_document_meta(root)
+    if is_gpx:
         routes, pois = _extract_gpx_features(root, route_id, category, poi_kinds)
     else:
         routes, pois = _extract_kml_features(root, route_id, category, poi_kinds)
@@ -480,9 +637,16 @@ def ingest_file(
     if not routes and not pois:
         raise ValueError(f"No valid LineString or Point geometries found in: {raw_file}")
 
+    region = folder_region or doc_meta.get("region", "")
     metrics = _compute_metrics(routes, pois)
     out_geojson = normalized_root.joinpath(*parts[:-1], f"{stem}.geojson")
     out_geojson.parent.mkdir(parents=True, exist_ok=True)
+
+    doc_extra = {
+        field: doc_meta[field]
+        for field in PRESERVED_FIELDS
+        if field != "region" and field in doc_meta and doc_meta[field] not in (None, "", [])
+    }
 
     collection = {
         "type": "FeatureCollection",
@@ -491,6 +655,7 @@ def ingest_file(
             "category": category,
             "region": region,
             "name": stem,
+            **doc_extra,
             **metrics,
         },
         "features": routes + pois,
@@ -504,6 +669,7 @@ def ingest_file(
         "name": stem,
         "raw_file": rel_path.as_posix(),
         "geojson_file": out_geojson.relative_to(raw_root.parent).as_posix(),
+        **doc_extra,
         **metrics,
         "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
@@ -542,9 +708,10 @@ def sync_catalog(
 
         prev = existing_by_id.get(entry["id"], {})
         for field in PRESERVED_FIELDS:
-            if field in prev:
+            if field in prev and prev[field] not in (None, "", []):
                 entry[field] = prev[field]
         entry.setdefault("status", "collected")
+        _sync_geojson_meta(raw_root.parent / entry["geojson_file"], entry)
         existing_by_id[entry["id"]] = entry
         seen_ids.add(entry["id"])
 
@@ -607,11 +774,16 @@ def preview_inbox_file(
     poi_kinds = schema.get("poi_kinds") or {}
     root = _read_xml_from_source(src)
     route_id = f"inbox__{src.stem}"
-    if _local_tag(root.tag).lower() == "gpx":
+    is_gpx = _local_tag(root.tag).lower() == "gpx"
+    doc_meta = {} if is_gpx else _extract_kml_document_meta(root)
+    if is_gpx:
         routes, pois = _extract_gpx_features(root, route_id, "inbox", poi_kinds)
     else:
         routes, pois = _extract_kml_features(root, route_id, "inbox", poi_kinds)
     metrics = _compute_metrics(routes, pois)
+    extra_props = {k: v for k, v in doc_meta.items() if k != "category"}
+    if "category" in doc_meta:
+        extra_props["suggested_category"] = doc_meta["category"]
     return {
         "type": "FeatureCollection",
         "properties": {
@@ -619,6 +791,7 @@ def preview_inbox_file(
             "category": "inbox",
             "file": rel_file,
             "name": src.stem,
+            **extra_props,
             **metrics,
         },
         "features": routes + pois,
@@ -637,7 +810,7 @@ def classify_inbox_file(
     catalog_path: Path = CATALOG_PATH,
     schema_path: Path = SCHEMA_PATH,
 ) -> dict[str, Any]:
-    """Move an inbox file into raw/<category>/<region>/<name>.<ext>, ingest it, and save metadata."""
+    """Move an inbox file into raw/<category>/<name>.<ext>, embed metadata into KML, and ingest."""
     if category not in VALID_CATEGORIES:
         raise ValueError(f"Invalid category '{category}', expected one of {VALID_CATEGORIES}")
 
@@ -645,27 +818,32 @@ def classify_inbox_file(
     if not src.exists() or not src.is_file():
         raise FileNotFoundError(f"Inbox file not found: {rel_file}")
 
-    clean_region = _sanitize_name(region, allow_slash=True)
+    clean_region = region.strip()
     clean_name = _sanitize_name(name or src.stem) or src.stem
     dest_dir = raw_root / category
-    if clean_region:
-        dest_dir = dest_dir / Path(*clean_region.split("/"))
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = dest_dir / f"{clean_name}{src.suffix.lower()}"
     if dest.exists() and dest.resolve() != src.resolve():
         raise FileExistsError(f"Target raw file already exists: {dest.relative_to(raw_root).as_posix()}")
 
     src.replace(dest)
+
+    meta = dict(meta or {})
+    if clean_region:
+        meta["region"] = clean_region
+    if dest.suffix.lower() == ".kml":
+        _write_kml_document_meta(dest, {**meta, "category": category})
+
     schema = _load_schema(schema_path)
     entry = ingest_file(dest, raw_root=raw_root, normalized_root=normalized_root, schema=schema)
 
-    meta = meta or {}
     catalog = _load_catalog(catalog_path)
     routes_by_id = {r["id"]: r for r in catalog.get("routes", []) if "id" in r}
     for field in PRESERVED_FIELDS:
-        if field in meta and meta[field] not in (None, ""):
+        if field in meta and meta[field] not in (None, "", []):
             entry[field] = meta[field]
     entry.setdefault("status", "collected")
+    _sync_geojson_meta(raw_root.parent / entry["geojson_file"], entry)
     routes_by_id[entry["id"]] = entry
 
     routes_list = sorted(routes_by_id.values(), key=lambda r: (r.get("category", ""), r.get("region", ""), r.get("name", "")))
@@ -691,7 +869,7 @@ def update_route_meta(
     catalog_path: Path = CATALOG_PATH,
     schema_path: Path = SCHEMA_PATH,
 ) -> dict[str, Any]:
-    """Update catalog metadata for an archived route, relocating files if category/region/name changed."""
+    """Update catalog metadata (and embedded KML tags) for an archived route, relocating only if category/name changed."""
     catalog = _load_catalog(catalog_path)
     routes = catalog.get("routes", [])
     target_idx = next((i for i, r in enumerate(routes) if r.get("id") == route_id), None)
@@ -702,17 +880,15 @@ def update_route_meta(
     new_cat = updates.get("category", entry["category"])
     if new_cat not in VALID_CATEGORIES:
         raise ValueError(f"Invalid category '{new_cat}'")
-    new_region = _sanitize_name(updates.get("region", entry.get("region", "")), allow_slash=True)
     new_name = _sanitize_name(updates.get("name", entry.get("name", ""))) or entry["name"]
 
     old_raw = _safe_rel_path(raw_root, entry["raw_file"])
     old_geojson = _safe_rel_path(raw_root.parent, entry["geojson_file"])
 
-    relocated = (new_cat != entry["category"]) or (new_region != entry.get("region", "")) or (new_name != entry["name"])
+    relocated = (new_cat != entry["category"]) or (new_name != entry["name"])
+    final_raw = old_raw
     if relocated and old_raw.exists():
         dest_dir = raw_root / new_cat
-        if new_region:
-            dest_dir = dest_dir / Path(*new_region.split("/"))
         dest_dir.mkdir(parents=True, exist_ok=True)
         new_raw = dest_dir / f"{new_name}{old_raw.suffix.lower()}"
         if new_raw.exists() and new_raw.resolve() != old_raw.resolve():
@@ -729,6 +905,7 @@ def update_route_meta(
         old_raw.replace(new_raw)
         if old_geojson.exists():
             old_geojson.unlink()
+        final_raw = new_raw
 
         new_entry = ingest_file(
             new_raw,
@@ -759,12 +936,18 @@ def update_route_meta(
     for field in PRESERVED_FIELDS:
         if field in updates:
             val = updates[field]
-            if val in (None, "", []):
+            if field == "region":
+                entry["region"] = str(val or "").strip()
+            elif val in (None, "", []):
                 entry.pop(field, None)
             else:
                 entry[field] = val
     entry.setdefault("status", "collected")
     entry["updated_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+    if final_raw.exists() and final_raw.suffix.lower() == ".kml":
+        _write_kml_document_meta(final_raw, entry)
+    _sync_geojson_meta(raw_root.parent / entry["geojson_file"], entry)
 
     routes[target_idx] = entry
     routes_sorted = sorted(routes, key=lambda r: (r.get("category", ""), r.get("region", ""), r.get("name", "")))

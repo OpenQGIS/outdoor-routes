@@ -209,10 +209,17 @@ class TestIngestKml(unittest.TestCase):
                 schema_path=schema_path,
             )
             self.assertFalse((inbox_root / "待整理路线.kml").exists())
-            self.assertTrue((raw_root / "offroad" / "四川-甘孜" / "格聂南线-标准版.kml").exists())
+            classified_kml = raw_root / "offroad" / "格聂南线-标准版.kml"
+            self.assertTrue(classified_kml.exists())
+            self.assertEqual(entry["region"], "四川-甘孜")
             self.assertEqual(entry["difficulty"], "轻度改装")
             self.assertEqual(entry["season"], ["9月", "10月"])
             self.assertEqual(entry["status"], "verified")
+
+            doc_meta = ingest_kml._extract_kml_document_meta(ingest_kml._read_xml_from_source(classified_kml))
+            self.assertEqual(doc_meta["region"], "四川-甘孜")
+            self.assertEqual(doc_meta["difficulty"], "轻度改装")
+            self.assertEqual(doc_meta["season"], ["9月", "10月"])
 
             # Add a custom POI via save_route_pois
             fc_after = ingest_kml.save_route_pois(
@@ -230,7 +237,7 @@ class TestIngestKml(unittest.TestCase):
             )
             self.assertEqual(fc_after["route"]["waypoints_count"], 1)
 
-            # Relocate/rename via update_route_meta and verify custom POI is preserved
+            # Relocate/rename via update_route_meta (flat layout, region embedded inside KML)
             moved = ingest_kml.update_route_meta(
                 route_id=entry["id"],
                 updates={"category": "hiking", "region": "川西", "name": "格聂轻徒步", "status": "completed"},
@@ -240,13 +247,65 @@ class TestIngestKml(unittest.TestCase):
                 schema_path=schema_path,
             )
             self.assertEqual(moved["category"], "hiking")
+            self.assertEqual(moved["region"], "川西")
             self.assertEqual(moved["status"], "completed")
             self.assertEqual(moved["waypoints_count"], 1)
-            self.assertTrue((raw_root / "hiking" / "川西" / "格聂轻徒步.kml").exists())
+            moved_kml = raw_root / "hiking" / "格聂轻徒步.kml"
+            self.assertTrue(moved_kml.exists())
+            moved_meta = ingest_kml._extract_kml_document_meta(ingest_kml._read_xml_from_source(moved_kml))
+            self.assertEqual(moved_meta["region"], "川西")
+            self.assertEqual(moved_meta["category"], "hiking")
 
             # Path traversal must be rejected
             with self.assertRaises(ValueError):
                 ingest_kml.preview_inbox_file("../secret.kml", inbox_root=inbox_root, schema_path=schema_path)
+
+    def test_kml_embedded_document_meta_roundtrip(self):
+        kml_with_meta = """<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>伊鹤牧道测试</name>
+    <ExtendedData>
+      <Data name="地区"><value>四川-阿坝</value></Data>
+      <Data name="sub_type"><value>穿越</value></Data>
+      <Data name="difficulty"><value>轻度改装</value></Data>
+      <Data name="season"><value>5月,9月,10月</value></Data>
+      <Data name="notes"><value>高原牧道注意暗冰</value></Data>
+    </ExtendedData>
+    <Placemark>
+      <name>主线</name>
+      <LineString><coordinates>101.6,31.6,3400 101.7,31.7,3600</coordinates></LineString>
+    </Placemark>
+  </Document>
+</kml>
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            raw_root = tmp_path / "raw"
+            norm_root = tmp_path / "normalized" / "geojson"
+            cat_path = tmp_path / "catalog.json"
+
+            kml_path = raw_root / "offroad" / "伊鹤牧道测试.kml"
+            kml_path.parent.mkdir(parents=True, exist_ok=True)
+            kml_path.write_text(kml_with_meta, encoding="utf-8")
+
+            catalog = ingest_kml.sync_catalog(
+                raw_root=raw_root,
+                normalized_root=norm_root,
+                catalog_path=cat_path,
+                schema_path=ROOT_DIR / "kmls" / "schema.yaml",
+            )
+            entry = catalog["routes"][0]
+            self.assertEqual(entry["id"], "offroad__伊鹤牧道测试")
+            self.assertEqual(entry["region"], "四川-阿坝")
+            self.assertEqual(entry["sub_type"], "穿越")
+            self.assertEqual(entry["difficulty"], "轻度改装")
+            self.assertEqual(entry["season"], ["5月", "9月", "10月"])
+            self.assertEqual(entry["notes"], "高原牧道注意暗冰")
+
+            geojson_data = json.loads((norm_root / "offroad" / "伊鹤牧道测试.geojson").read_text(encoding="utf-8"))
+            self.assertEqual(geojson_data["properties"]["region"], "四川-阿坝")
+            self.assertEqual(geojson_data["properties"]["difficulty"], "轻度改装")
 
 
 if __name__ == "__main__":

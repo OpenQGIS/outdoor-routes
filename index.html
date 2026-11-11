@@ -167,6 +167,27 @@
     .route-card.cat-cycling { border-left-color: #0EA5E9; }
     .route-card.cat-hiking { border-left-color: #16A34A; }
     .route-card.cat-inbox { border-left-color: #d29922; }
+    .route-card.cat-local { border-left-color: #d946ef; }
+    .local-actions-bar {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .rc-remove-btn {
+      flex: 0 0 auto;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 0 5px;
+      font-size: 11px;
+      line-height: 1.4;
+      border-radius: 4px;
+    }
+    .rc-remove-btn:hover {
+      color: #ff7b72;
+      border-color: rgba(248, 81, 73, 0.45);
+      background: rgba(248, 81, 73, 0.12);
+    }
     .rc-title {
       font-weight: 600;
       font-size: 12.5px;
@@ -403,8 +424,48 @@
       background: rgba(56, 139, 253, 0.14);
       color: #79c0ff;
     }
-    body.readonly-mode .workbench-only {
+    body.readonly-mode .workbench-only,
+    #right-panel.local-preview-mode .workbench-only {
       display: none !important;
+    }
+    #drop-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      background: rgba(13, 15, 18, 0.82);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      pointer-events: none;
+    }
+    #drop-overlay.active {
+      display: flex;
+    }
+    .drop-overlay-card {
+      border: 2px dashed var(--accent);
+      background: rgba(20, 22, 25, 0.94);
+      border-radius: 14px;
+      padding: 36px 48px;
+      text-align: center;
+      max-width: 460px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+    }
+    .drop-overlay-icon {
+      font-size: 36px;
+      margin-bottom: 10px;
+    }
+    .drop-overlay-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+    .drop-overlay-sub {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      line-height: 1.6;
     }
     .export-bar {
       display: flex;
@@ -426,6 +487,18 @@
       font-size: 11px;
       border-radius: 4px;
       font-weight: 600;
+    }
+    .export-btn.export-kml-primary {
+      background: #1f6feb;
+      border-color: #388bfd;
+      color: #fff;
+    }
+    .export-btn.export-kml-primary:hover {
+      background: #2f81f7;
+    }
+    .map-tool-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
     }
   </style>
 </head>
@@ -477,9 +550,10 @@
       </div>
     </div>
 
-    <div class="tab-bar workbench-only">
+    <div class="tab-bar">
       <button type="button" class="tab-btn active" data-tab="catalog">已归档 (<span id="cnt-catalog">0</span>)</button>
-      <button type="button" class="tab-btn" data-tab="inbox">待分类 Inbox (<span id="cnt-inbox">0</span>)</button>
+      <button type="button" class="tab-btn workbench-only" data-tab="inbox">待分类 Inbox (<span id="cnt-inbox">0</span>)</button>
+      <button type="button" class="tab-btn" data-tab="local">我的 KML (<span id="cnt-local">0</span>)</button>
     </div>
 
     <div class="filters-box" id="catalog-filters">
@@ -510,8 +584,11 @@
     <div class="map-toolbar">
       <button type="button" class="map-tool-btn" id="btn-fit-route">🎯 定位当前路线</button>
       <button type="button" class="map-tool-btn" id="btn-overlay-all">🗺️ 叠显筛选路线</button>
+      <button type="button" class="map-tool-btn" id="btn-open-local-kml" title="从本地选择 .kml / .kmz / .gpx / .geojson 文件预览（也可直接拖入浏览器窗口）">📂 导入 KML</button>
+      <button type="button" class="map-tool-btn" id="btn-download-kml" disabled title="下载包含完整轨迹、POI 与地区标注的导航 KML">🧭 下载导航 KML</button>
       <button type="button" class="map-tool-btn workbench-only" id="btn-add-poi" title="开启后点击地图任意位置新增 POI 标注">➕ 点选新增 POI</button>
     </div>
+    <input type="file" id="local-kml-input" accept=".kml,.kmz,.gpx,.geojson,.json" multiple style="display:none;" />
 
     <div class="hud-box">
       <span>Z: <strong id="hud-zoom">12.00</strong></span>
@@ -530,9 +607,9 @@
       <div class="metric-grid" id="route-metrics"></div>
 
       <div class="export-bar" id="export-bar">
-        <span class="export-label">下载轨迹</span>
+        <span class="export-label">导出导航</span>
+        <button type="button" class="export-btn export-kml-primary" data-export="kml" title="下载包含轨迹、POI 及地区/难度等要素的导航 KML">🧭 导航 KML</button>
         <button type="button" class="export-btn" data-export="gpx">⬇️ GPX</button>
-        <button type="button" class="export-btn" data-export="kml">⬇️ KML</button>
         <button type="button" class="export-btn" data-export="geojson">⬇️ GeoJSON</button>
       </div>
 
@@ -643,6 +720,14 @@
       <div class="poi-list" id="poi-list"></div>
     </div>
   </aside>
+
+  <div id="drop-overlay">
+    <div class="drop-overlay-card">
+      <div class="drop-overlay-icon">📂</div>
+      <div class="drop-overlay-title">松开鼠标导入 KML 路线预览</div>
+      <div class="drop-overlay-sub">支持 <b>.kml</b> / <b>.kmz</b> / <b>.gpx</b> / <b>.geojson</b> 文件（支持多选）<br/>仅在本地浏览器实时解析渲染，不会上传至服务器</div>
+    </div>
+  </div>
 
   <script src="./web/vendor/leaflet.js"></script>
   <script src="./web/vendor/maplibre-gl.js"></script>

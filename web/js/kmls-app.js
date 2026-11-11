@@ -1,6 +1,7 @@
 /**
  * KML 路线库与在线标注工作台前端逻辑 (Standalone Leaflet)
  */
+import { parseLocalRouteFile } from './local-kml-parser.js';
 
 const map = L.map('map', {
   center: [30.6586, 104.0648],
@@ -400,18 +401,22 @@ const DEFAULT_SCHEMA = {
   }
 };
 
+const LOCAL_ROUTE_PALETTE = ['#d946ef', '#06b6d4', '#f43f5e', '#a855f7', '#eab308', '#22d3ee'];
+
 const state = {
   readonly: false,
-  tab: 'catalog', // 'catalog' | 'inbox'
+  tab: 'catalog', // 'catalog' | 'inbox' | 'local'
   catFilter: 'all',
   statusFilter: 'all',
   query: '',
   catalog: { routes: [], summary: {} },
   inbox: [],
+  localRoutes: [],
   schema: DEFAULT_SCHEMA,
-  selectedMode: null, // 'archived' | 'inbox'
+  selectedMode: null, // 'archived' | 'inbox' | 'local'
   selectedId: null,
   selectedInboxFile: null,
+  selectedLocalId: null,
   currentEntry: null,
   currentGeojson: null,
   overlayAll: false,
@@ -475,7 +480,7 @@ function applyModeUi() {
       ? '纯静态只读展示模式（直接读取 kmls/catalog.json 与 GeoJSON）'
       : '本地编辑模式（已连接 server.py，支持归档与 POI 写回）';
   }
-  if (state.readonly) {
+  if (state.readonly && state.tab === 'inbox') {
     state.tab = 'catalog';
   }
 }
@@ -552,6 +557,8 @@ function populatePoiKindSelect() {
 function renderCounts() {
   document.getElementById('cnt-catalog').textContent = String((state.catalog.routes || []).length);
   document.getElementById('cnt-inbox').textContent = String(state.inbox.length);
+  const localEl = document.getElementById('cnt-local');
+  if (localEl) localEl.textContent = String(state.localRoutes.length);
 }
 
 function getFilteredRoutes() {
@@ -560,7 +567,8 @@ function getFilteredRoutes() {
     if (state.catFilter !== 'all' && r.category !== state.catFilter) return false;
     if (state.statusFilter !== 'all' && (r.status || 'collected') !== state.statusFilter) return false;
     if (q) {
-      const hay = `${r.name || ''} ${r.region || ''} ${r.sub_type || ''} ${r.notes || ''}`.toLowerCase();
+      const tagsTxt = Array.isArray(r.tags) ? r.tags.join(' ') : (r.tags || '');
+      const hay = `${r.name || ''} ${r.region || ''} ${r.sub_type || ''} ${tagsTxt} ${r.notes || ''}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -603,7 +611,7 @@ function renderList() {
     listEl.querySelectorAll('.route-card').forEach((card) => {
       card.addEventListener('click', () => selectArchivedRoute(card.dataset.id));
     });
-  } else {
+  } else if (state.tab === 'inbox') {
     if (!state.inbox.length) {
       listEl.innerHTML = '<div class="empty-hint">待分类目录 <b>kmls/inbox/</b> 当前为空。<br/>直接把未整理的 .kml / .kmz / .gpx 拖入该目录，点击右上角「扫描同步」即可加载预览。</div>';
       return;
@@ -627,6 +635,53 @@ function renderList() {
     listEl.querySelectorAll('.route-card').forEach((card) => {
       card.addEventListener('click', () => selectInboxItem(card.dataset.file));
     });
+  } else {
+    const actionsHtml = `
+      <div class="local-actions-bar">
+        <button type="button" id="btn-local-pick">📂 选择 KML 文件</button>
+        ${state.localRoutes.length ? '<button type="button" id="btn-local-clear" style="flex:0 0 auto;">🗑️ 清空</button>' : ''}
+      </div>
+    `;
+    if (!state.localRoutes.length) {
+      listEl.innerHTML = actionsHtml + '<div class="empty-hint">暂无本地导入路线。<br/>将 <b>.kml / .kmz / .gpx / .geojson</b> 文件直接拖入浏览器窗口任意位置，或点击上方「选择 KML 文件」即可实时渲染预览。</div>';
+    } else {
+      const cardsHtml = state.localRoutes.map((item) => {
+        const r = item.entry;
+        const active = state.selectedMode === 'local' && state.selectedLocalId === item.id ? 'selected' : '';
+        return `
+          <div class="route-card cat-local ${active}" data-local-id="${escapeHtml(item.id)}" style="border-left-color:${escapeHtml(item.color)};">
+            <div class="rc-title">
+              <span style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(r.name)}</span>
+              <span style="display:flex; align-items:center; gap:4px; flex:0 0 auto;">
+                <span class="badge">本地预览</span>
+                <button type="button" class="rc-remove-btn" data-remove-local="${escapeHtml(item.id)}" title="移除此路线">✕</button>
+              </span>
+            </div>
+            <div class="rc-meta">
+              <span>${escapeHtml(getCatLabel(r.category))}</span>
+              <span>${r.distance_km ?? 0} km</span>
+              ${r.max_ele_m ? `<span>▲${r.max_ele_m}m</span>` : ''}
+              <span>POI ${r.waypoints_count ?? 0}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+      listEl.innerHTML = actionsHtml + cardsHtml;
+    }
+
+    listEl.querySelector('#btn-local-pick')?.addEventListener('click', () => {
+      document.getElementById('local-kml-input')?.click();
+    });
+    listEl.querySelector('#btn-local-clear')?.addEventListener('click', () => clearLocalRoutes());
+    listEl.querySelectorAll('.route-card[data-local-id]').forEach((card) => {
+      card.addEventListener('click', () => selectLocalRoute(card.dataset.localId));
+    });
+    listEl.querySelectorAll('[data-remove-local]').forEach((btn) => {
+      btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        removeLocalRoute(btn.dataset.removeLocal);
+      });
+    });
   }
 }
 
@@ -638,13 +693,16 @@ async function selectArchivedRoute(routeId) {
     state.selectedMode = 'archived';
     state.selectedId = routeId;
     state.selectedInboxFile = null;
+    state.selectedLocalId = null;
     state.currentEntry = entry;
     state.currentGeojson = fc;
     state.editingPoiIndex = null;
     state.pendingNewPoiCoords = null;
+    const dlBtn = document.getElementById('btn-download-kml');
+    if (dlBtn) dlBtn.disabled = false;
     renderList();
     renderGeojsonOnMap(fc, entry.category, true);
-    openDrawerForRoute(entry, false);
+    openDrawerForRoute(entry, false, false);
   } catch (err) {
     showToast(`加载路线失败: ${err.message}`);
   }
@@ -659,25 +717,152 @@ async function selectInboxItem(relFile) {
     state.selectedMode = 'inbox';
     state.selectedId = null;
     state.selectedInboxFile = relFile;
-    state.currentEntry = { name: summary.name };
+    state.selectedLocalId = null;
+    state.currentEntry = { name: summary.name, ...fc.properties };
     state.currentGeojson = fc;
     state.editingPoiIndex = null;
     state.pendingNewPoiCoords = null;
+    const dlBtn = document.getElementById('btn-download-kml');
+    if (dlBtn) dlBtn.disabled = false;
     renderList();
     renderGeojsonOnMap(fc, 'inbox', true);
 
     const guessedCat = guessCategoryFromSummary(summary);
     const pseudoEntry = {
       id: `[inbox] ${relFile}`,
-      category: guessedCat,
       region: '',
       name: summary.name,
       status: 'collected',
-      ...fc.properties
+      ...fc.properties,
+      category: fc.properties?.suggested_category || guessedCat
     };
-    openDrawerForRoute(pseudoEntry, true);
+    state.currentEntry = pseudoEntry;
+    openDrawerForRoute(pseudoEntry, true, false);
   } catch (err) {
     showToast(`预览失败: ${err.message}`);
+  }
+}
+
+function selectLocalRoute(localId, fit = true) {
+  const item = state.localRoutes.find((r) => r.id === localId);
+  if (!item) return;
+  if (state.addPoiMode) toggleAddPoiMode(false);
+  state.selectedMode = 'local';
+  state.selectedId = null;
+  state.selectedInboxFile = null;
+  state.selectedLocalId = localId;
+  state.currentEntry = item.entry;
+  state.currentGeojson = item.geojson;
+  state.editingPoiIndex = null;
+  state.pendingNewPoiCoords = null;
+  const dlBtn = document.getElementById('btn-download-kml');
+  if (dlBtn) dlBtn.disabled = false;
+  renderList();
+  renderGeojsonOnMap(item.geojson, 'local', fit, item.color);
+  openDrawerForRoute(item.entry, false, true);
+}
+
+function resetLocalSelectionView() {
+  activeLayerGroup.clearLayers();
+  state.selectedMode = null;
+  state.selectedLocalId = null;
+  state.currentEntry = null;
+  state.currentGeojson = null;
+  const dlBtn = document.getElementById('btn-download-kml');
+  if (dlBtn) dlBtn.disabled = true;
+  document.getElementById('right-panel').classList.add('hidden');
+}
+
+function removeLocalRoute(localId) {
+  const idx = state.localRoutes.findIndex((r) => r.id === localId);
+  if (idx < 0) return;
+  state.localRoutes.splice(idx, 1);
+  if (state.selectedMode === 'local' && state.selectedLocalId === localId) {
+    if (state.localRoutes.length) {
+      const next = state.localRoutes[Math.min(idx, state.localRoutes.length - 1)];
+      selectLocalRoute(next.id, true);
+    } else {
+      resetLocalSelectionView();
+    }
+  }
+  renderCounts();
+  renderList();
+  if (state.overlayAll) renderOverviewAll();
+}
+
+function clearLocalRoutes() {
+  state.localRoutes = [];
+  if (state.selectedMode === 'local') {
+    resetLocalSelectionView();
+  }
+  renderCounts();
+  renderList();
+  if (state.overlayAll) renderOverviewAll();
+  showToast('已清空本地预览列表');
+}
+
+async function handleLocalFiles(fileList) {
+  const files = Array.from(fileList || []);
+  if (!files.length) return;
+
+  const imported = [];
+  const errors = [];
+
+  for (const file of files) {
+    try {
+      const { entry, geojson } = await parseLocalRouteFile(file, state.schema);
+      const id = `local__${file.name}__${file.size}`;
+      const existingIdx = state.localRoutes.findIndex((r) => r.id === id);
+      const color = existingIdx >= 0
+        ? state.localRoutes[existingIdx].color
+        : LOCAL_ROUTE_PALETTE[state.localRoutes.length % LOCAL_ROUTE_PALETTE.length];
+      entry._color = color;
+      const item = { id, color, entry, geojson };
+      if (existingIdx >= 0) {
+        state.localRoutes[existingIdx] = item;
+      } else {
+        state.localRoutes.unshift(item);
+      }
+      imported.push(item);
+    } catch (err) {
+      errors.push(`${file.name}: ${err.message}`);
+    }
+  }
+
+  if (imported.length) {
+    state.tab = 'local';
+    document.querySelectorAll('.tab-btn').forEach((b) => {
+      b.classList.toggle('active', b.dataset.tab === 'local');
+    });
+    renderCounts();
+    selectLocalRoute(imported[0].id, imported.length === 1);
+
+    if (imported.length > 1) {
+      state.overlayAll = true;
+      document.getElementById('btn-overlay-all')?.classList.add('active');
+      await renderOverviewAll();
+      const combinedBounds = L.latLngBounds();
+      for (const item of imported) {
+        for (const feat of item.geojson.features || []) {
+          const g = feat.geometry || {};
+          if (g.type === 'LineString') {
+            g.coordinates.forEach((c) => combinedBounds.extend([c[1], c[0]]));
+          } else if (g.type === 'Point') {
+            combinedBounds.extend([g.coordinates[1], g.coordinates[0]]);
+          }
+        }
+      }
+      if (combinedBounds.isValid()) {
+        map.fitBounds(combinedBounds, { padding: [48, 48], maxZoom: 15 });
+      }
+    }
+
+    const msg = errors.length
+      ? `已导入 ${imported.length} 个文件，${errors.length} 个失败（${errors[0]}）`
+      : (imported.length === 1 ? `已导入本地路线：${imported[0].entry.name}` : `已导入并叠加 ${imported.length} 个本地路线`);
+    showToast(msg);
+  } else if (errors.length) {
+    showToast(errors[0]);
   }
 }
 
@@ -688,11 +873,11 @@ function guessCategoryFromSummary(summary) {
   return 'hiking';
 }
 
-function renderGeojsonOnMap(fc, category, fit = true) {
+function renderGeojsonOnMap(fc, category, fit = true, overrideColor = null) {
   activeLayerGroup.clearLayers();
   if (!fc || !Array.isArray(fc.features)) return;
 
-  const lineColor = category === 'inbox' ? '#f59e0b' : getCatColor(category);
+  const lineColor = overrideColor || (category === 'inbox' ? '#f59e0b' : (category === 'local' ? '#d946ef' : getCatColor(category)));
   const lineWeight = state.schema?.categories?.[category]?.line_width || 3.5;
   const bounds = L.latLngBounds();
 
@@ -735,8 +920,15 @@ function renderGeojsonOnMap(fc, category, fit = true) {
     );
     marker.on('click', (ev) => {
       L.DomEvent.stopPropagation(ev);
-      if (state.readonly) {
-        marker.openTooltip();
+      if (state.readonly || state.selectedMode === 'local') {
+        const popupHtml = `
+          <div style="font-size:12px; line-height:1.5; max-width:240px;">
+            <strong>${escapeHtml(props.name || '未命名路点')}</strong>
+            <div style="color:#555; font-size:11px;">${escapeHtml(getPoiLabel(kind))}${props.ele !== undefined && props.ele !== null ? ` · ${props.ele}m` : ''}</div>
+            ${props.description ? `<div style="margin-top:4px; white-space:pre-wrap;">${escapeHtml(props.description)}</div>` : ''}
+          </div>
+        `;
+        marker.bindPopup(popupHtml).openPopup();
         return;
       }
       const poiIdx = getPoiFeatures().indexOf(feat);
@@ -752,6 +944,21 @@ function renderGeojsonOnMap(fc, category, fit = true) {
 async function renderOverviewAll() {
   overviewLayerGroup.clearLayers();
   if (!state.overlayAll) return;
+
+  if (state.tab === 'local') {
+    for (const item of state.localRoutes) {
+      const color = item.color || '#d946ef';
+      for (const feat of item.geojson.features || []) {
+        if (feat.geometry?.type === 'LineString') {
+          const latlngs = feat.geometry.coordinates.map((c) => [c[1], c[0]]);
+          const poly = L.polyline(latlngs, { color, weight: 2.5, opacity: 0.78 }).addTo(overviewLayerGroup);
+          poly.bindTooltip(`${escapeHtml(item.entry.name)} (${item.entry.distance_km} km)`, { sticky: true });
+          poly.on('click', () => selectLocalRoute(item.id));
+        }
+      }
+    }
+    return;
+  }
 
   const routes = getFilteredRoutes();
   for (const r of routes) {
@@ -778,24 +985,27 @@ function updateCategoryDependentOptions(cat) {
   diffList.innerHTML = (cfg.difficulty_levels || []).map((v) => `<option value="${escapeHtml(v)}"></option>`).join('');
 }
 
-function renderSeasonGrid(selectedSeasons = []) {
+function renderSeasonGrid(selectedSeasons = [], readonly = state.readonly) {
   const set = new Set(selectedSeasons || []);
   const grid = document.getElementById('season-grid');
   grid.innerHTML = MONTHS.map((m) =>
     `<div class="season-pill ${set.has(m) ? 'active' : ''}" data-month="${m}">${m}</div>`
   ).join('');
-  if (!state.readonly) {
+  if (!readonly) {
     grid.querySelectorAll('.season-pill').forEach((el) => {
       el.addEventListener('click', () => el.classList.toggle('active'));
     });
   }
 }
 
-function openDrawerForRoute(entry, isInbox) {
-  document.getElementById('right-panel').classList.remove('hidden');
-  document.getElementById('drawer-title').textContent = state.readonly
-    ? '路线详情'
-    : (isInbox ? '待分类路线预览与归档' : '路线详情与标注');
+function openDrawerForRoute(entry, isInbox, isLocal = false) {
+  const formReadonly = state.readonly || isLocal;
+  const rightPanel = document.getElementById('right-panel');
+  rightPanel.classList.remove('hidden');
+  rightPanel.classList.toggle('local-preview-mode', Boolean(isLocal));
+  document.getElementById('drawer-title').textContent = isLocal
+    ? '本地 KML 预览'
+    : (state.readonly ? '路线详情' : (isInbox ? '待分类路线预览与归档' : '路线详情与标注'));
   document.getElementById('btn-save-meta').textContent = isInbox ? '📥 分类并归档入库' : '💾 保存标注';
 
   const metricsEl = document.getElementById('route-metrics');
@@ -815,15 +1025,15 @@ function openDrawerForRoute(entry, isInbox) {
   document.getElementById('f-difficulty').value = entry.difficulty || '';
   document.getElementById('f-status').value = entry.status || 'collected';
   document.getElementById('f-notes').value = entry.notes || '';
-  renderSeasonGrid(entry.season || []);
+  renderSeasonGrid(entry.season || [], formReadonly);
 
   ['f-category', 'f-subtype', 'f-region', 'f-name', 'f-difficulty', 'f-status', 'f-notes'].forEach((id) => {
     const el = document.getElementById(id);
-    if (el) el.disabled = state.readonly;
+    if (el) el.disabled = formReadonly;
   });
 
   document.getElementById('poi-editor').style.display = 'none';
-  renderPoiList();
+  renderPoiList(formReadonly);
 }
 
 function getPoiFeatures() {
@@ -831,12 +1041,12 @@ function getPoiFeatures() {
   return state.currentGeojson.features.filter((f) => f.properties?.feature_type === 'poi');
 }
 
-function renderPoiList() {
+function renderPoiList(readonly = state.readonly || state.selectedMode === 'local') {
   const pois = getPoiFeatures();
   document.getElementById('poi-count').textContent = String(pois.length);
   const listEl = document.getElementById('poi-list');
   if (!pois.length) {
-    listEl.innerHTML = state.readonly
+    listEl.innerHTML = readonly
       ? '<div style="font-size:11.5px; color:var(--text-muted); padding:6px 0;">该路线暂无 POI 路点标注。</div>'
       : '<div style="font-size:11.5px; color:var(--text-muted); padding:6px 0;">暂无 POI，可点击上方「➕ 地图选点新增」在轨迹沿线补充营地、水源、垭口等路点。</div>';
     return;
@@ -863,7 +1073,7 @@ function renderPoiList() {
       if (feat) {
         const [lng, lat] = feat.geometry.coordinates;
         map.setView([lat, lng], Math.max(map.getZoom(), 14));
-        if (!state.readonly) openPoiEditor(idx);
+        if (!readonly) openPoiEditor(idx);
       }
     });
   });
@@ -962,32 +1172,145 @@ function geojsonToGpx(fc, routeName) {
   return lines.join('\n') + '\n';
 }
 
-function geojsonToKml(fc, routeName) {
+function hexToKmlColor(hex, alpha = 'ff') {
+  const clean = String(hex || '').trim().replace(/^#/, '');
+  if (/^[0-9a-fA-F]{6}$/.test(clean)) {
+    const r = clean.slice(0, 2);
+    const g = clean.slice(2, 4);
+    const b = clean.slice(4, 6);
+    return `${alpha}${b}${g}${r}`.toLowerCase();
+  }
+  return `${alpha}f7812f`;
+}
+
+function buildExportMeta(fc) {
+  const props = fc?.properties || {};
+  const entry = state.currentEntry || {};
+  const base = { ...props, ...entry };
+  if (!state.readonly && state.selectedMode !== 'local' && document.getElementById('f-category')) {
+    const seasons = Array.from(document.querySelectorAll('#season-grid .season-pill.active')).map((el) => el.dataset.month);
+    const formCat = document.getElementById('f-category').value;
+    if (formCat) base.category = formCat;
+    base.sub_type = document.getElementById('f-subtype')?.value.trim() || base.sub_type || '';
+    base.region = document.getElementById('f-region')?.value.trim() || base.region || '';
+    base.difficulty = document.getElementById('f-difficulty')?.value.trim() || base.difficulty || '';
+    base.status = document.getElementById('f-status')?.value || base.status || 'collected';
+    base.notes = document.getElementById('f-notes')?.value.trim() || base.notes || '';
+    if (seasons.length) base.season = seasons;
+  }
+  return base;
+}
+
+function geojsonToKml(fc, routeName, meta = {}) {
+  const category = meta.category && meta.category !== 'inbox' ? meta.category : 'hiking';
+  const catCfg = state.schema?.categories?.[category] || {};
+  const catLabel = getCatLabel(category);
+  const kmlColor = hexToKmlColor(catCfg.color || getCatColor(category), 'ff');
+  const lineWidth = Number(catCfg.line_width || 3.5);
+
+  const summaryParts = [];
+  if (catLabel) summaryParts.push(`分类: ${catLabel}`);
+  if (meta.sub_type) summaryParts.push(`类型: ${meta.sub_type}`);
+  if (meta.region) summaryParts.push(`地区: ${meta.region}`);
+  if (meta.difficulty) summaryParts.push(`难度: ${meta.difficulty}`);
+  if (Array.isArray(meta.season) && meta.season.length) summaryParts.push(`适行季节: ${meta.season.join('、')}`);
+  if (meta.status) summaryParts.push(`状态: ${meta.status}`);
+  if (meta.distance_km != null) summaryParts.push(`里程: ${meta.distance_km} km`);
+  if (meta.elevation_gain_m != null) summaryParts.push(`累计爬升: ${meta.elevation_gain_m} m`);
+  if (meta.max_ele_m != null) summaryParts.push(`最高海拔: ${meta.max_ele_m} m`);
+  if (meta.notes) summaryParts.push(`备注: ${meta.notes}`);
+
   const lines = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<kml xmlns="http://www.opengis.net/kml/2.2">',
     '  <Document>',
     `    <name>${escapeXml(routeName)}</name>`
   ];
+  if (summaryParts.length) {
+    lines.push(`    <description>${escapeXml(summaryParts.join('\n'))}</description>`);
+  }
+
+  const extFields = [
+    ['category', category],
+    ['region', meta.region],
+    ['sub_type', meta.sub_type],
+    ['difficulty', meta.difficulty],
+    ['season', Array.isArray(meta.season) ? meta.season.join(',') : meta.season],
+    ['status', meta.status],
+    ['tags', Array.isArray(meta.tags) ? meta.tags.join(',') : meta.tags],
+    ['notes', meta.notes],
+    ['distance_km', meta.distance_km],
+    ['elevation_gain_m', meta.elevation_gain_m],
+    ['max_ele_m', meta.max_ele_m],
+    ['min_ele_m', meta.min_ele_m]
+  ].filter(([, val]) => val !== undefined && val !== null && String(val).trim() !== '');
+
+  if (extFields.length) {
+    lines.push('    <ExtendedData>');
+    for (const [k, v] of extFields) {
+      lines.push(`      <Data name="${escapeXml(k)}"><value>${escapeXml(v)}</value></Data>`);
+    }
+    lines.push('    </ExtendedData>');
+  }
+
+  lines.push(
+    '    <Style id="routeStyle">',
+    `      <LineStyle><color>${kmlColor}</color><width>${lineWidth}</width></LineStyle>`,
+    '    </Style>',
+    '    <Style id="poiStyle">',
+    '      <IconStyle><scale>1.0</scale><Icon><href>https://maps.google.com/mapfiles/kml/paddle/ylw-circle.png</href></Icon></IconStyle>',
+    '    </Style>'
+  );
+
+  const routeFeatures = [];
+  const poiFeatures = [];
   for (const feat of fc.features || []) {
     const geom = feat.geometry || {};
-    const p = feat.properties || {};
     if (geom.type === 'Point' && Array.isArray(geom.coordinates)) {
-      const coord = geom.coordinates.join(',');
-      lines.push('    <Placemark>');
-      lines.push(`      <name>${escapeXml(p.name || 'POI')}</name>`);
-      if (p.description) lines.push(`      <description>${escapeXml(p.description)}</description>`);
-      lines.push(`      <Point><coordinates>${coord}</coordinates></Point>`);
-      lines.push('    </Placemark>');
+      poiFeatures.push(feat);
     } else if (geom.type === 'LineString' && Array.isArray(geom.coordinates)) {
-      const coords = geom.coordinates.map((c) => c.join(',')).join(' ');
-      lines.push('    <Placemark>');
-      lines.push(`      <name>${escapeXml(p.name || routeName)}</name>`);
-      if (p.description) lines.push(`      <description>${escapeXml(p.description)}</description>`);
-      lines.push(`      <LineString><coordinates>${coords}</coordinates></LineString>`);
-      lines.push('    </Placemark>');
+      routeFeatures.push(feat);
     }
   }
+
+  if (routeFeatures.length) {
+    lines.push('    <Folder>', '      <name>轨迹路线</name>');
+    for (const feat of routeFeatures) {
+      const p = feat.properties || {};
+      const coords = feat.geometry.coordinates.map((c) => c.join(',')).join(' ');
+      lines.push('      <Placemark>');
+      lines.push(`        <name>${escapeXml(p.name || routeName)}</name>`);
+      if (p.description) lines.push(`        <description>${escapeXml(p.description)}</description>`);
+      lines.push('        <styleUrl>#routeStyle</styleUrl>');
+      lines.push(`        <LineString><tessellate>1</tessellate><coordinates>${coords}</coordinates></LineString>`);
+      lines.push('      </Placemark>');
+    }
+    lines.push('    </Folder>');
+  }
+
+  if (poiFeatures.length) {
+    lines.push('    <Folder>', '      <name>POI 路点</name>');
+    for (const feat of poiFeatures) {
+      const p = feat.properties || {};
+      const coord = feat.geometry.coordinates.join(',');
+      const kind = p.poi_kind || 'waypoint';
+      const kindLabel = getPoiLabel(kind);
+      const descParts = [];
+      if (kindLabel && kind !== 'waypoint') descParts.push(`[${kindLabel}]`);
+      if (p.description) descParts.push(p.description);
+      lines.push('      <Placemark>');
+      lines.push(`        <name>${escapeXml(p.name || 'POI')}</name>`);
+      if (descParts.length) lines.push(`        <description>${escapeXml(descParts.join(' '))}</description>`);
+      lines.push('        <styleUrl>#poiStyle</styleUrl>');
+      lines.push('        <ExtendedData>');
+      lines.push(`          <Data name="poi_kind"><value>${escapeXml(kind)}</value></Data>`);
+      lines.push('        </ExtendedData>');
+      lines.push(`        <Point><coordinates>${coord}</coordinates></Point>`);
+      lines.push('      </Placemark>');
+    }
+    lines.push('    </Folder>');
+  }
+
   lines.push('  </Document>', '</kml>');
   return lines.join('\n') + '\n';
 }
@@ -997,7 +1320,10 @@ function exportCurrentRoute(format) {
     showToast('请先选择一条路线');
     return;
   }
-  const baseName = (state.currentEntry?.name || 'route').replace(/[<>:"/\\|?*]/g, '_');
+  const meta = buildExportMeta(state.currentGeojson);
+  const editable = !state.readonly && state.selectedMode !== 'local';
+  const rawName = (editable && document.getElementById('f-name')?.value.trim()) || meta.name || 'route';
+  const baseName = rawName.replace(/[<>:"/\\|?*]/g, '_');
   let content = '';
   let mime = 'application/octet-stream';
   if (format === 'geojson') {
@@ -1007,7 +1333,7 @@ function exportCurrentRoute(format) {
     content = geojsonToGpx(state.currentGeojson, baseName);
     mime = 'application/gpx+xml;charset=utf-8';
   } else if (format === 'kml') {
-    content = geojsonToKml(state.currentGeojson, baseName);
+    content = geojsonToKml(state.currentGeojson, baseName, meta);
     mime = 'application/vnd.google-earth.kml+xml;charset=utf-8';
   } else {
     return;
@@ -1021,11 +1347,20 @@ function exportCurrentRoute(format) {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
-  showToast(`已导出 ${baseName}.${format}`);
+  showToast(`已导出导航文件 ${baseName}.${format}`);
 }
 
 function toggleAddPoiMode(forceVal) {
   if (state.readonly) return;
+  if (state.selectedMode === 'local') {
+    state.addPoiMode = false;
+    document.getElementById('btn-add-poi')?.classList.remove('active');
+    document.getElementById('map')?.classList.remove('crosshair-mode');
+    if (forceVal !== false) {
+      showToast('本地导入的 KML 仅供预览与导出，暂不支持写入路线库 POI');
+    }
+    return;
+  }
   state.addPoiMode = typeof forceVal === 'boolean' ? forceVal : !state.addPoiMode;
   const btn = document.getElementById('btn-add-poi');
   const mapEl = document.getElementById('map');
@@ -1041,6 +1376,54 @@ function toggleAddPoiMode(forceVal) {
     }
     showToast('已开启选点模式：请在地图上点击要标注的位置');
   }
+}
+
+function setupDragAndDrop() {
+  const dropOverlay = document.getElementById('drop-overlay');
+  let dragDepth = 0;
+
+  const isFileDrag = (e) => {
+    const types = e.dataTransfer?.types;
+    return Boolean(types && Array.from(types).includes('Files'));
+  };
+
+  const hideOverlay = () => {
+    dragDepth = 0;
+    dropOverlay?.classList.remove('active');
+  };
+
+  window.addEventListener('dragenter', (e) => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    dragDepth += 1;
+    dropOverlay?.classList.add('active');
+  });
+
+  window.addEventListener('dragover', (e) => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+  });
+
+  window.addEventListener('dragleave', (e) => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) {
+      dropOverlay?.classList.remove('active');
+    }
+  });
+
+  window.addEventListener('drop', (e) => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    hideOverlay();
+    if (e.dataTransfer?.files?.length) {
+      handleLocalFiles(e.dataTransfer.files);
+    }
+  });
+
+  window.addEventListener('blur', hideOverlay);
 }
 
 function bindEvents() {
@@ -1067,6 +1450,7 @@ function bindEvents() {
       btn.classList.add('active');
       state.tab = btn.dataset.tab;
       renderList();
+      if (state.overlayAll) renderOverviewAll();
     });
   });
 
@@ -1112,7 +1496,11 @@ function bindEvents() {
 
   document.getElementById('btn-fit-route').addEventListener('click', () => {
     if (state.currentGeojson) {
-      renderGeojsonOnMap(state.currentGeojson, state.selectedMode === 'inbox' ? 'inbox' : document.getElementById('f-category').value, true);
+      const cat = state.selectedMode === 'inbox'
+        ? 'inbox'
+        : (state.selectedMode === 'local' ? 'local' : document.getElementById('f-category').value);
+      const color = state.selectedMode === 'local' ? state.currentEntry?._color : null;
+      renderGeojsonOnMap(state.currentGeojson, cat, true, color);
     }
   });
 
@@ -1120,6 +1508,23 @@ function bindEvents() {
     state.overlayAll = !state.overlayAll;
     e.currentTarget.classList.toggle('active', state.overlayAll);
     renderOverviewAll();
+  });
+
+  document.getElementById('btn-open-local-kml')?.addEventListener('click', () => {
+    document.getElementById('local-kml-input')?.click();
+  });
+
+  document.getElementById('local-kml-input')?.addEventListener('change', (e) => {
+    if (e.target.files?.length) {
+      handleLocalFiles(e.target.files);
+      e.target.value = '';
+    }
+  });
+
+  setupDragAndDrop();
+
+  document.getElementById('btn-download-kml')?.addEventListener('click', () => {
+    exportCurrentRoute('kml');
   });
 
   document.getElementById('btn-add-poi').addEventListener('click', () => toggleAddPoiMode());
