@@ -1,11 +1,11 @@
 /* Global Layout, Topbar, Shared Pills/Badges, Overlays */
 
 :root {
-  --bg-deep: #0b0e13;
-  --bg-elevated: #12161d;
-  --bg-glass: rgba(18, 22, 29, 0.86);
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.16);
+  --bg-deep: #f4f6f9;
+  --bg-elevated: #ffffff;
+  --bg-glass: rgba(255, 255, 255, 0.9);
+  --border-subtle: rgba(15, 23, 42, 0.08);
+  --border-strong: rgba(15, 23, 42, 0.16);
   --cat-offroad: #E85D04;
   --cat-cycling: #0EA5E9;
   --cat-hiking: #16A34A;
@@ -35,7 +35,7 @@ html, body {
   height: 50px;
   min-height: 50px;
   padding: 0 16px;
-  background: rgba(13, 17, 23, 0.94);
+  background: rgba(255, 255, 255, 0.92);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -56,7 +56,7 @@ html, body {
 .brand-title {
   font-size: 14.5px;
   font-weight: 700;
-  color: #fff;
+  color: #0f172a;
   letter-spacing: -0.01em;
   white-space: nowrap;
 }
@@ -65,15 +65,16 @@ html, body {
   font-size: 10.5px;
   padding: 2px 8px;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: rgba(63, 185, 80, 0.14);
-  color: #7ee787;
+  border: 1px solid rgba(22, 163, 74, 0.3);
+  background: rgba(22, 163, 74, 0.1);
+  color: #15803d;
   white-space: nowrap;
 }
 
 body.readonly-mode .mode-badge {
-  background: rgba(56, 139, 253, 0.14);
-  color: #79c0ff;
+  border-color: rgba(37, 99, 235, 0.28);
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
 }
 
 body.readonly-mode .workbench-only,
@@ -107,33 +108,33 @@ body.readonly-mode .workbench-only,
 }
 
 .nav-pill:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(15, 23, 42, 0.05);
   border-color: transparent;
-  color: #fff;
+  color: #0f172a;
 }
 
 .nav-pill.active {
-  background: rgba(47, 129, 247, 0.16);
-  border-color: rgba(56, 139, 253, 0.45);
-  color: #fff;
+  background: rgba(37, 99, 235, 0.1);
+  border-color: rgba(37, 99, 235, 0.35);
+  color: #1d4ed8;
 }
 
 .nav-pill[data-nav="cat-offroad"].active {
-  background: rgba(232, 93, 4, 0.18);
-  border-color: rgba(232, 93, 4, 0.55);
-  color: #ffb380;
+  background: rgba(232, 93, 4, 0.1);
+  border-color: rgba(232, 93, 4, 0.4);
+  color: #c2410c;
 }
 
 .nav-pill[data-nav="cat-cycling"].active {
-  background: rgba(14, 165, 233, 0.18);
-  border-color: rgba(14, 165, 233, 0.55);
-  color: #7dd3fc;
+  background: rgba(14, 165, 233, 0.12);
+  border-color: rgba(14, 165, 233, 0.4);
+  color: #0369a1;
 }
 
 .nav-pill[data-nav="cat-hiking"].active {
-  background: rgba(22, 163, 74, 0.18);
-  border-color: rgba(22, 163, 74, 0.55);
-  color: #86efac;
+  background: rgba(22, 163, 74, 0.1);
+  border-color: rgba(22, 163, 74, 0.4);
+  color: #15803d;
 }
 
 .nav-dot {
@@ -156,7 +157,7 @@ body.readonly-mode .workbench-only,
   font-size: 12px;
   font-weight: 600;
   border-radius: 6px;
-  background: var(--bg-card);
+  background: var(--bg-panel);
   border: 1px solid var(--border);
   color: var(--text-main);
   white-space: nowrap;
@@ -164,7 +165,7 @@ body.readonly-mode .workbench-only,
 
 .icon-btn:hover {
   background: var(--bg-hover);
-  border-color: #484f58;
+  border-color: #cbd5e1;
 }
 
 /* Views Container */
@@ -200,9 +201,9 @@ body.readonly-mode .workbench-only,
 }
 
 .pill.active {
-  background: rgba(47, 129, 247, 0.22);
+  background: rgba(37, 99, 235, 0.12);
   border-color: var(--accent);
-  color: #fff;
+  color: #1d4ed8;
 }
 
 
@@ -211,15 +212,16 @@ body.readonly-mode .workbench-only,
   padding: 1px 6px;
   border-radius: 999px;
   border: 1px solid var(--border);
+  background: var(--bg-panel);
   color: var(--text-muted);
   white-space: nowrap;
 }
 
-.badge.verified { color: #3fb950; border-color: rgba(63, 185, 80, 0.4); }
-.badge.completed { color: #58a6ff; border-color: rgba(88, 166, 255, 0.4); }
-.badge.qc-passed { color: #3fb950; border-color: rgba(63, 185, 80, 0.35); background: rgba(63, 185, 80, 0.08); }
-.badge.qc-warning { color: #f59e0b; border-color: rgba(245, 158, 11, 0.45); background: rgba(245, 158, 11, 0.12); }
-.badge.qc-error { color: #ff7b72; border-color: rgba(248, 81, 73, 0.5); background: rgba(248, 81, 73, 0.14); }
+.badge.verified { color: #15803d; border-color: rgba(22, 163, 74, 0.35); background: rgba(22, 163, 74, 0.08); }
+.badge.completed { color: #1d4ed8; border-color: rgba(37, 99, 235, 0.35); background: rgba(37, 99, 235, 0.08); }
+.badge.qc-passed { color: #15803d; border-color: rgba(22, 163, 74, 0.35); background: rgba(22, 163, 74, 0.08); }
+.badge.qc-warning { color: #b45309; border-color: rgba(217, 119, 6, 0.4); background: rgba(245, 158, 11, 0.12); }
+.badge.qc-error { color: #dc2626; border-color: rgba(220, 38, 38, 0.45); background: rgba(239, 68, 68, 0.1); }
 
 
 .empty-hint {
@@ -237,16 +239,17 @@ body.readonly-mode .workbench-only,
   left: 50%;
   transform: translateX(-50%) translateY(-10px);
   z-index: 2500;
-  background: rgba(18, 22, 29, 0.96);
+  background: rgba(255, 255, 255, 0.97);
   border: 1px solid var(--accent);
-  color: #fff;
+  color: #0f172a;
   padding: 7px 15px;
   border-radius: 8px;
   font-size: 12.5px;
+  font-weight: 500;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s, transform 0.2s;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
 }
 
 #toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -255,8 +258,8 @@ body.readonly-mode .workbench-only,
   position: fixed;
   inset: 0;
   z-index: 3000;
-  background: rgba(11, 14, 19, 0.84);
-  backdrop-filter: blur(4px);
+  background: rgba(244, 246, 249, 0.84);
+  backdrop-filter: blur(5px);
   display: none;
   align-items: center;
   justify-content: center;
@@ -268,11 +271,13 @@ body.readonly-mode .workbench-only,
 
 .drop-overlay-card {
   border: 2px dashed var(--accent);
-  background: rgba(20, 22, 25, 0.94);
+  background: rgba(255, 255, 255, 0.96);
+  color: #0f172a;
   border-radius: 14px;
   padding: 36px 48px;
   text-align: center;
   max-width: 460px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.14);
 }
 
 /* User Geolocation Pulsing Marker */
@@ -280,7 +285,7 @@ body.readonly-mode .workbench-only,
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #38bdf8;
+  background: #0ea5e9;
   border: 2.5px solid #ffffff;
-  box-shadow: 0 0 0 6px rgba(56, 189, 248, 0.28);
+  box-shadow: 0 0 0 6px rgba(14, 165, 233, 0.28);
 }

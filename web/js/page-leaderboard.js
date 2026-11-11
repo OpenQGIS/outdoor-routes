@@ -47,7 +47,7 @@ export function renderLeaderboardPage() {
   };
   const sumCatKm = Math.max(0.01, catKms.offroad + catKms.cycling + catKms.hiking);
   document.getElementById('lb-cat-bar-wrap').innerHTML = `
-    <div style="font-size:12px; font-weight:600; color:#cbd5e1;">三大类里程占比</div>
+    <div style="font-size:12px; font-weight:600; color:#334155;">三大类里程占比</div>
     <div class="lb-cat-bar">
       <div style="width:${(catKms.offroad / sumCatKm) * 100}%; background:#E85D04;" title="越野穿越"></div>
       <div style="width:${(catKms.cycling / sumCatKm) * 100}%; background:#0EA5E9;" title="自行车"></div>
@@ -106,14 +106,14 @@ export function renderLeaderboardPage() {
       <div class="lb-row" data-lb-id="${escapeHtml(r.id)}">
         <div class="lb-rank-num">#${rank}</div>
         <div>
-          <div style="font-weight:700; color:#fff; font-size:13.5px;">${escapeHtml(r.name)}</div>
+          <div style="font-weight:700; color:#0f172a; font-size:13.5px;">${escapeHtml(r.name)}</div>
           <div style="font-size:11.5px; color:var(--text-muted); margin-top:2px;">
             <span style="color:${color}; font-weight:600;">${escapeHtml(getCatLabel(r.category))}</span>
             ${r.region ? ` · ${escapeHtml(r.region)}` : ''}
             ${r.year ? ` · ${escapeHtml(r.year)}年` : ''}
           </div>
         </div>
-        <div style="font-family:var(--mono); font-size:12px; color:#cbd5e1;">
+        <div style="font-family:var(--mono); font-size:12px; color:#475569;">
           <b>${r.distance_km ?? 0}</b> km · ↑<b>${r.elevation_gain_m ?? '-'}</b> m · ⛰️<b>${r.max_ele_m ?? '-'}m</b>
         </div>
         <div>${spark}</div>

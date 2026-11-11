@@ -35,7 +35,7 @@
 .home-hero-title {
   font-size: clamp(26px, 3.6vw, 40px);
   font-weight: 800;
-  color: #f8fafc;
+  color: #0f172a;
   letter-spacing: -0.02em;
   line-height: 1.18;
 }
@@ -43,7 +43,7 @@
 .home-hero-sub {
   margin-top: 10px;
   font-size: 14px;
-  color: #94a3b8;
+  color: #475569;
   font-family: var(--mono);
   display: flex;
   align-items: center;
@@ -53,7 +53,7 @@
 }
 
 .home-hero-sub strong {
-  color: #e2e8f0;
+  color: #0f172a;
   font-weight: 700;
 }
 
@@ -67,8 +67,8 @@
 .portal-card {
   position: relative;
   text-align: left;
-  background: rgba(18, 22, 29, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(15, 23, 42, 0.1);
   border-radius: 14px;
   padding: 26px 24px 24px;
   min-height: 270px;
@@ -78,6 +78,7 @@
   cursor: pointer;
   backdrop-filter: blur(10px);
   overflow: hidden;
+  box-shadow: 0 6px 24px rgba(15, 23, 42, 0.06);
   transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
 }
 
@@ -93,9 +94,9 @@
 
 .portal-card:hover {
   transform: translateY(-4px);
-  background: rgba(22, 28, 37, 0.94);
+  background: #ffffff;
   border-color: var(--card-accent, var(--accent));
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
 }
 
 .portal-card[data-cat="offroad"] { --card-accent: var(--cat-offroad); }
@@ -117,8 +118,8 @@
   align-items: center;
   justify-content: center;
   font-size: 24px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #f1f5f9;
+  border: 1px solid rgba(15, 23, 42, 0.08);
 }
 
 .portal-en {
@@ -132,20 +133,20 @@
   margin-top: 16px;
   font-size: 24px;
   font-weight: 800;
-  color: #fff;
+  color: #0f172a;
 }
 
 .portal-desc {
   margin-top: 6px;
   font-size: 12.5px;
-  color: #94a3b8;
+  color: #475569;
   line-height: 1.5;
 }
 
 .portal-stats {
   margin-top: 22px;
   padding-top: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
@@ -155,7 +156,7 @@
   font-family: var(--mono);
   font-size: 15px;
   font-weight: 700;
-  color: #f8fafc;
+  color: #0f172a;
 }
 
 .portal-stat-lbl {
@@ -171,7 +172,7 @@
   justify-content: space-between;
   font-size: 12.5px;
   font-weight: 700;
-  color: var(--card-accent, #fff);
+  color: var(--card-accent, var(--accent));
 }
 
 .home-bottom-links {
@@ -186,17 +187,19 @@
   flex: 0 0 auto;
   padding: 9px 18px;
   border-radius: 999px;
-  background: rgba(18, 22, 29, 0.85);
+  background: rgba(255, 255, 255, 0.92);
   border: 1px solid var(--border-strong);
-  color: #e2e8f0;
+  color: #1e293b;
   font-size: 13px;
   font-weight: 600;
   backdrop-filter: blur(8px);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
 }
 
 .home-sec-btn:hover {
   border-color: var(--accent);
-  background: rgba(31, 111, 235, 0.16);
+  background: rgba(37, 99, 235, 0.08);
+  color: #1d4ed8;
 }
 
 @media (max-width: 900px) {

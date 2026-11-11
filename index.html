@@ -10,12 +10,12 @@
   <link rel="stylesheet" href="./web/css/app.css" />
 </head>
 <body>
-  <div id="file-proto-banner" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(13,15,18,0.96); color:#e6edf3; align-items:center; justify-content:center; padding:24px;">
-    <div style="max-width:520px; background:#141619; border:1px solid #2c313a; border-radius:10px; padding:22px 24px; line-height:1.7;">
-      <h2 style="font-size:16px; color:#fff; margin-bottom:10px;">需要通过本地服务打开路线图鉴工作台</h2>
-      <p style="font-size:13px; color:#8b949e; margin-bottom:12px;">浏览器安全策略限制直接以 <code>file://</code> 协议读取本地数据与写回 <code>catalog.json</code>。</p>
-      <p style="font-size:13px; color:#e6edf3; margin-bottom:14px;">请双击 <b>启动路线标注.bat</b>（或运行 <code>python server.py 8766</code>），然后访问：<br/><code style="color:#58a6ff;">http://127.0.0.1:8766/</code></p>
-      <a href="http://127.0.0.1:8766/" style="display:inline-block; padding:7px 14px; background:#1f6feb; color:#fff; border-radius:6px; text-decoration:none; font-weight:600; font-size:12.5px;">如果服务已启动，点击直接跳转 →</a>
+  <div id="file-proto-banner" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(244,246,249,0.96); color:#1e293b; align-items:center; justify-content:center; padding:24px;">
+    <div style="max-width:520px; background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:22px 24px; line-height:1.7; box-shadow:0 12px 32px rgba(15,23,42,0.12);">
+      <h2 style="font-size:16px; color:#0f172a; margin-bottom:10px;">需要通过本地服务打开路线图鉴工作台</h2>
+      <p style="font-size:13px; color:#64748b; margin-bottom:12px;">浏览器安全策略限制直接以 <code>file://</code> 协议读取本地数据与写回 <code>catalog.json</code>。</p>
+      <p style="font-size:13px; color:#1e293b; margin-bottom:14px;">请双击 <b>启动路线标注.bat</b>（或运行 <code>python server.py 8766</code>），然后访问：<br/><code style="color:#2563eb;">http://127.0.0.1:8766/</code></p>
+      <a href="http://127.0.0.1:8766/" style="display:inline-block; padding:7px 14px; background:#2563eb; color:#fff; border-radius:6px; text-decoration:none; font-weight:600; font-size:12.5px;">如果服务已启动，点击直接跳转 →</a>
     </div>
   </div>
   <script>if (location.protocol === 'file:') { document.getElementById('file-proto-banner').style.display = 'flex'; }</script>
@@ -290,7 +290,7 @@
         <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
           <button type="button" class="icon-btn" id="btn-detail-prev" title="上一条路线">◀ 上一条</button>
           <button type="button" class="icon-btn" id="btn-detail-next" title="下一条路线">下一条 ▶</button>
-          <button type="button" class="icon-btn export-kml-primary" id="btn-detail-export-kml" style="background:#1f6feb; border-color:#388bfd; color:#fff;">🧭 导出 KML</button>
+          <button type="button" class="icon-btn export-kml-primary" id="btn-detail-export-kml" style="background:#2563eb; border-color:#1d4ed8; color:#fff;">🧭 导出 KML</button>
           <button type="button" class="icon-btn" id="btn-detail-export-gpx">GPX</button>
         </div>
       </div>
@@ -311,7 +311,7 @@
             <div class="stage-ctrl-group">
               <span>夸大</span>
               <input type="range" id="terrain-exag-slider" min="0.8" max="3.5" step="0.1" value="1.6" style="width:74px; padding:0; border:none; background:transparent;" />
-              <span id="terrain-exag-val" style="font-family:var(--mono); color:#fff; min-width:30px;">1.6x</span>
+              <span id="terrain-exag-val" style="font-family:var(--mono); color:#0f172a; min-width:30px;">1.6x</span>
             </div>
             <div class="stage-ctrl-group">
               <button type="button" class="mini-pill-btn" data-cam="iso">等轴测</button>
@@ -333,8 +333,8 @@
         <div class="detail-profile-panel">
           <div class="profile-panel-head">
             <div style="display:flex; align-items:center; gap:10px;">
-              <strong style="color:#e2e8f0; font-size:12px;">📈 交互式高程剖面图</strong>
-              <span id="profile-ele-source" style="font-size:11px; color:#8b949e;">支持鼠标滑动联动 3D 光标 · 拖拽框选测坡（双击清除）</span>
+              <strong style="color:#0f172a; font-size:12px;">📈 交互式高程剖面图</strong>
+              <span id="profile-ele-source" style="font-size:11px; color:var(--text-muted);">支持鼠标滑动联动 3D 光标 · 拖拽框选测坡（双击清除）</span>
             </div>
             <div class="slope-legend">
               <span class="slope-dot"><i style="background:#38bdf8"></i>下坡</span>
@@ -353,7 +353,6 @@
           <div class="detail-tabs">
             <button type="button" class="detail-tab-btn active" data-dtab="breakdown">地形拆解</button>
             <button type="button" class="detail-tab-btn" data-dtab="pois">POI (<span id="detail-poi-cnt">0</span>)</button>
-            <button type="button" class="detail-tab-btn" data-dtab="qc">质检 <span id="detail-qc-cnt" class="qc-tab-pill"></span></button>
             <button type="button" class="detail-tab-btn" data-dtab="edit">标注与导出</button>
           </div>
 
@@ -370,10 +369,7 @@
               <div class="poi-timeline" id="detail-poi-list"></div>
             </div>
 
-            <!-- Tab 3: KML Quality Check -->
-            <div id="dtab-qc" style="display:none; flex-direction:column; gap:10px;"></div>
-
-            <!-- Tab 4: Metadata Editor & Exports -->
+            <!-- Tab 3: Metadata Editor & Exports -->
             <div id="dtab-edit" style="display:none; flex-direction:column; gap:12px;">
               <div class="export-bar" id="export-bar">
                 <span class="export-label" style="font-size:11px; color:var(--text-muted); white-space:nowrap;">导出轨迹</span>

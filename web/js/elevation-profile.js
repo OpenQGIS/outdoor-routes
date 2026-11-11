@@ -519,14 +519,14 @@ export class ElevationProfileChart {
     for (let t = 0; t <= yTicks; t++) {
       const val = yMin + (t / yTicks) * ySpan;
       const y = yFor(val);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+      ctx.strokeStyle = 'rgba(15, 23, 42, 0.08)';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(padLeft, y);
       ctx.lineTo(padLeft + plotW, y);
       ctx.stroke();
 
-      ctx.fillStyle = '#8b949e';
+      ctx.fillStyle = '#64748b';
       ctx.fillText(`${Math.round(val)}m`, padLeft - 7, y);
     }
 
@@ -537,12 +537,12 @@ export class ElevationProfileChart {
     for (let t = 0; t <= xTicks; t++) {
       const km = (t / xTicks) * totalKm;
       const x = xFor(km);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+      ctx.strokeStyle = 'rgba(15, 23, 42, 0.05)';
       ctx.beginPath();
       ctx.moveTo(x, padTop);
       ctx.lineTo(x, padTop + plotH);
       ctx.stroke();
-      ctx.fillStyle = '#8b949e';
+      ctx.fillStyle = '#64748b';
       ctx.fillText(`${km.toFixed(totalKm >= 20 ? 0 : 1)}km`, x, padTop + plotH + 6);
     }
 
@@ -551,17 +551,17 @@ export class ElevationProfileChart {
       const [a, b] = this.selection;
       const x0 = xFor(pts[a].distKm);
       const x1 = xFor(pts[b].distKm);
-      ctx.fillStyle = 'rgba(47, 129, 247, 0.14)';
+      ctx.fillStyle = 'rgba(37, 99, 235, 0.12)';
       ctx.fillRect(x0, padTop, x1 - x0, plotH);
-      ctx.strokeStyle = 'rgba(88, 166, 255, 0.5)';
+      ctx.strokeStyle = 'rgba(37, 99, 235, 0.45)';
       ctx.lineWidth = 1;
       ctx.strokeRect(x0, padTop, x1 - x0, plotH);
     }
 
     // Area fill under elevation curve
     const areaGrad = ctx.createLinearGradient(0, padTop, 0, padTop + plotH);
-    areaGrad.addColorStop(0, 'rgba(56, 189, 248, 0.28)');
-    areaGrad.addColorStop(1, 'rgba(56, 189, 248, 0.02)');
+    areaGrad.addColorStop(0, 'rgba(14, 165, 233, 0.24)');
+    areaGrad.addColorStop(1, 'rgba(14, 165, 233, 0.03)');
     ctx.beginPath();
     pts.forEach((pt, idx) => {
       const x = xFor(pt.distKm);
@@ -602,7 +602,7 @@ export class ElevationProfileChart {
       const py = yFor(pe);
       const col = this.poiColors[poi.poiKind] || '#f59e0b';
 
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+      ctx.strokeStyle = 'rgba(15, 23, 42, 0.22)';
       ctx.lineWidth = 1;
       ctx.setLineDash([2, 2]);
       ctx.beginPath();
@@ -615,13 +615,13 @@ export class ElevationProfileChart {
       ctx.beginPath();
       ctx.arc(px, py, 3.6, 0, Math.PI * 2);
       ctx.fill();
-      ctx.strokeStyle = '#0d0f12';
-      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.4;
       ctx.stroke();
 
       if (px - lastLabelX > 62) {
         const shortName = poi.name.length > 7 ? `${poi.name.slice(0, 6)}…` : poi.name;
-        ctx.fillStyle = 'rgba(230, 237, 243, 0.85)';
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
         ctx.fillText(shortName, px, Math.max(padTop + 10, py - 6));
         lastLabelX = px;
       }
@@ -633,7 +633,7 @@ export class ElevationProfileChart {
       const hx = xFor(hp.distKm);
       const hy = yFor(hp.ele ?? yMin);
 
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+      ctx.strokeStyle = 'rgba(15, 23, 42, 0.35)';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(hx, padTop);
@@ -644,7 +644,7 @@ export class ElevationProfileChart {
       ctx.beginPath();
       ctx.arc(hx, hy, 4.5, 0, Math.PI * 2);
       ctx.fill();
-      ctx.strokeStyle = '#1f6feb';
+      ctx.strokeStyle = '#2563eb';
       ctx.lineWidth = 2;
       ctx.stroke();
     }

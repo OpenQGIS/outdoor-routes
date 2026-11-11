@@ -266,7 +266,7 @@ export function renderCategoryList() {
           </div>
           <div class="rc-bottom">
             <div class="rc-metrics">
-              ${item.error ? '<span style="color:#ff7b72;">解析失败</span>' : `<span><b>${item.distance_km ?? 0}</b> km</span><span>POI <b>${item.waypoints_count ?? 0}</b></span>`}
+              ${item.error ? '<span style="color:#dc2626;">解析失败</span>' : `<span><b>${item.distance_km ?? 0}</b> km</span><span>POI <b>${item.waypoints_count ?? 0}</b></span>`}
             </div>
           </div>
         </div>
@@ -404,12 +404,12 @@ export function showPreviewCard(entry, category) {
     const st = qc?.status || entry.qc_status || 'passed';
     if (cnt > 0) {
       qcBtn.textContent = `⚠️ 异常 ${cnt}`;
-      qcBtn.style.color = st === 'error' ? '#ff7b72' : '#f59e0b';
-      qcBtn.style.borderColor = st === 'error' ? 'rgba(248,81,73,0.5)' : 'rgba(245,158,11,0.5)';
+      qcBtn.style.color = st === 'error' ? '#dc2626' : '#d97706';
+      qcBtn.style.borderColor = st === 'error' ? 'rgba(220,38,38,0.45)' : 'rgba(217,119,6,0.45)';
     } else {
       qcBtn.textContent = '🛡️ 质检通过';
-      qcBtn.style.color = '#3fb950';
-      qcBtn.style.borderColor = 'rgba(63,185,80,0.4)';
+      qcBtn.style.color = '#15803d';
+      qcBtn.style.borderColor = 'rgba(22,163,74,0.4)';
     }
   }
 
@@ -567,12 +567,11 @@ export function toggleAddPoiMode(forceVal) {
   }
 }
 
-async function openSelectedDetail(targetTab = null) {
+async function openSelectedDetail() {
   if (!state.currentEntry || !state.currentGeojson) return;
   if (state.selectedMode === 'archived') await actions.openDetailForArchived?.(state.selectedId);
   else if (state.selectedMode === 'inbox') await actions.enterDetailView?.(state.currentEntry, state.currentGeojson, true, false);
   else if (state.selectedMode === 'local') await actions.enterDetailView?.(state.currentEntry, state.currentGeojson, false, true);
-  if (targetTab) actions.switchDetailTab?.(targetTab);
 }
 
 export function bindCategoryEvents() {
@@ -636,8 +635,18 @@ export function bindCategoryEvents() {
     }
   });
   document.getElementById('mpc-btn-kml')?.addEventListener('click', () => exportCurrentRoute('kml'));
-  document.getElementById('mpc-btn-qc')?.addEventListener('click', () => openSelectedDetail('qc'));
-  document.getElementById('mpc-btn-detail')?.addEventListener('click', () => openSelectedDetail(null));
+  document.getElementById('mpc-btn-qc')?.addEventListener('click', () => {
+    const qc = state.currentQc;
+    if (!qc) return;
+    if (qc.issues?.length) {
+      state.qcShowOnMap = true;
+      renderQcMarkersOnLayer(qcMapLayerGroup, map, qc, qc.issues[0].id, true);
+      showToast(`已在地图定位 ${qc.issues.length} 处疑似异常轨迹点`);
+    } else {
+      showToast('当前路线轨迹质检通过，未发现异常点');
+    }
+  });
+  document.getElementById('mpc-btn-detail')?.addEventListener('click', () => openSelectedDetail());
 
   document.getElementById('btn-add-poi')?.addEventListener('click', () => toggleAddPoiMode());
   map.on('click', (ev) => {

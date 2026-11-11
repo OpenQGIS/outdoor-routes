@@ -41,7 +41,10 @@ function loadCorsImage(url) {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
+    img.onerror = () => {
+      _corsImgCache.delete(url);
+      resolve(null);
+    };
     img.src = url;
   });
   if (_corsImgCache.size > 160) {
@@ -94,7 +97,7 @@ function makeSpriteLabel(text, accentColor = '#ffffff') {
   canvas.width = w;
   canvas.height = h;
 
-  ctx.fillStyle = 'rgba(13, 17, 23, 0.86)';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
   ctx.beginPath();
   ctx.roundRect(1, 1, w - 2, h - 2, 10);
   ctx.fill();
@@ -103,7 +106,7 @@ function makeSpriteLabel(text, accentColor = '#ffffff') {
   ctx.stroke();
 
   ctx.font = '600 20px "PingFang SC", "Microsoft YaHei", sans-serif';
-  ctx.fillStyle = '#f0f6fc';
+  ctx.fillStyle = '#0f172a';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(text, w / 2, h / 2 + 1, w - padX);
@@ -151,7 +154,7 @@ export class TerrainBlockViewer {
     const h = Math.max(240, this.containerEl.clientHeight || 420);
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x0b0e13);
+    this.scene.background = new THREE.Color(0xeef2f7);
 
     this.camera = new THREE.PerspectiveCamera(42, w / h, 0.5, 1200);
     this.camera.position.set(78, 68, 92);
@@ -175,19 +178,19 @@ export class TerrainBlockViewer {
     this.controls.maxDistance = 280;
 
     // Lighting tailored for relief clarity
-    const hemi = new THREE.HemisphereLight(0xdbeafe, 0x1e293b, 1.05);
+    const hemi = new THREE.HemisphereLight(0xffffff, 0xcbd5e1, 1.15);
     this.scene.add(hemi);
 
-    const sun = new THREE.DirectionalLight(0xfff7ed, 1.35);
+    const sun = new THREE.DirectionalLight(0xfffbeb, 1.3);
     sun.position.set(75, 110, 55);
     this.scene.add(sun);
 
-    const rim = new THREE.DirectionalLight(0x60a5fa, 0.42);
+    const rim = new THREE.DirectionalLight(0x93c5fd, 0.45);
     rim.position.set(-80, 40, -70);
     this.scene.add(rim);
 
     // Subtle ground grid ring below block
-    const gridHelper = new THREE.GridHelper(180, 24, 0x26303d, 0x151a22);
+    const gridHelper = new THREE.GridHelper(180, 24, 0xcbd5e1, 0xe2e8f0);
     gridHelper.position.y = -0.25;
     this.scene.add(gridHelper);
 
@@ -252,15 +255,22 @@ export class TerrainBlockViewer {
 
   async loadRoute(fc, { categoryColor = '#E85D04', routeName = '' } = {}) {
     const token = ++this._loadToken;
+    // Always clear previous 3D terrain & tile cache before fetching a new terrain
+    // so stale cached meshes are never displayed during loading.
+    this._clearGroup(this.terrainGroup);
+    this._clearGroup(this.overlayGroup);
+    this.heightGrid = null;
+    this.demLoaded = false;
+    this.hoverMarker.visible = false;
+    _corsImgCache.clear();
+    this.renderer?.render(this.scene, this.camera);
+
     this.currentFc = fc;
     this.currentCategoryColor = categoryColor;
     this.currentRouteName = routeName;
     this.bounds = computePaddedBounds(fc);
-    this.hoverMarker.visible = false;
 
     if (!this.bounds) {
-      this._clearGroup(this.terrainGroup);
-      this._clearGroup(this.overlayGroup);
       this.onStatusChange({ loading: false, message: '暂无轨迹坐标' });
       return;
     }
@@ -543,24 +553,24 @@ export class TerrainBlockViewer {
         const e = (h00 * (1 - tx) + h10 * tx) * (1 - ty) + (h01 * (1 - tx) + h11 * tx) * ty;
         const norm = (e - minE) / span;
 
-        // Dark hypsometric slate palette
-        let r = 20 + norm * 36;
-        let g = 28 + norm * 42;
-        let b = 38 + norm * 44;
+        // Light hypsometric topographic paper palette
+        let r = 212 + norm * 32;
+        let g = 222 + norm * 24;
+        let b = 214 + norm * 20;
 
-        // Crisp contour lines
+        // Crisp dark contour lines
         const mod = Math.abs((e % interval) / interval);
         if (mod < 0.075 || mod > 0.925) {
           const isMajor = Math.abs((e % (interval * 5)) / (interval * 5)) < 0.08;
-          r += isMajor ? 52 : 24;
-          g += isMajor ? 68 : 32;
-          b += isMajor ? 82 : 42;
+          r -= isMajor ? 72 : 34;
+          g -= isMajor ? 76 : 36;
+          b -= isMajor ? 82 : 40;
         }
 
         const off = (py * size + px) * 4;
-        data[off] = Math.min(255, r);
-        data[off + 1] = Math.min(255, g);
-        data[off + 2] = Math.min(255, b);
+        data[off] = Math.max(0, Math.min(255, r));
+        data[off + 1] = Math.max(0, Math.min(255, g));
+        data[off + 2] = Math.max(0, Math.min(255, b));
         data[off + 3] = 255;
       }
     }
@@ -623,7 +633,7 @@ export class TerrainBlockViewer {
 
     const topMat = new THREE.MeshStandardMaterial({
       map: surfaceTex || null,
-      color: surfaceTex ? 0xffffff : 0x334155,
+      color: surfaceTex ? 0xffffff : 0xcbd5e1,
       roughness: 0.86,
       metalness: 0.04
     });
@@ -639,8 +649,8 @@ export class TerrainBlockViewer {
       const verts = [a, b, c, a, c, d];
       for (const v of verts) {
         wallPositions.push(v[0], v[1], v[2]);
-        const f = v[1] > 0.01 ? shade : shade * 0.55;
-        wallColors.push(0.11 * f, 0.14 * f, 0.18 * f);
+        const f = v[1] > 0.01 ? shade : shade * 0.72;
+        wallColors.push(0.58 * f, 0.63 * f, 0.70 * f);
       }
     };
 
@@ -684,7 +694,7 @@ export class TerrainBlockViewer {
     // 3. Bottom base slab
     const baseGeo = new THREE.PlaneGeometry(this.blockW, this.blockD);
     baseGeo.rotateX(Math.PI / 2);
-    const baseMat = new THREE.MeshBasicMaterial({ color: 0x0d1117 });
+    const baseMat = new THREE.MeshBasicMaterial({ color: 0xcbd5e1 });
     this.terrainGroup.add(new THREE.Mesh(baseGeo, baseMat));
   }
 
@@ -737,7 +747,7 @@ export class TerrainBlockViewer {
 
       const pinHeight = 4.2;
       const stemGeo = new THREE.CylinderGeometry(0.11, 0.11, pinHeight, 8);
-      const stemMat = new THREE.MeshBasicMaterial({ color: 0xe2e8f0 });
+      const stemMat = new THREE.MeshBasicMaterial({ color: 0x475569 });
       const stem = new THREE.Mesh(stemGeo, stemMat);
       stem.position.set(basePos.x, basePos.y + pinHeight / 2, basePos.z);
       this.overlayGroup.add(stem);
@@ -800,10 +810,10 @@ export class TerrainBlockViewer {
 
     if (titleText) {
       const pad = Math.round(out.width * 0.025);
-      ctx.fillStyle = 'rgba(11, 14, 19, 0.72)';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
       ctx.fillRect(0, out.height - 54, out.width, 54);
       ctx.font = 'bold 22px "PingFang SC", "Microsoft YaHei", sans-serif';
-      ctx.fillStyle = '#f0f6fc';
+      ctx.fillStyle = '#0f172a';
       ctx.textBaseline = 'middle';
       ctx.fillText(titleText, pad, out.height - 27);
     }

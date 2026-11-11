@@ -124,12 +124,12 @@ export class ContourBackground {
     const ctx = this.ctx;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // Subtle dark topographic paper base
-    ctx.fillStyle = '#0b0e13';
+    // Light topographic paper base
+    ctx.fillStyle = '#f4f6f9';
     ctx.fillRect(0, 0, w, h);
 
     // Subtle graticule grid
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.025)';
+    ctx.strokeStyle = 'rgba(15, 23, 42, 0.04)';
     ctx.lineWidth = 1;
     const stepX = Math.max(96, Math.floor(w / 10));
     const stepY = Math.max(96, Math.floor(h / 6));
@@ -156,10 +156,10 @@ export class ContourBackground {
     for (let l = 1; l < levels; l++) {
       const level = this.minVal + (l / levels) * span;
       const isIndex = l % 4 === 0;
-      const alpha = isIndex ? 0.22 : 0.085;
+      const alpha = isIndex ? 0.28 : 0.14;
       ctx.strokeStyle = isIndex
         ? `rgba(${ar}, ${ag}, ${ab}, ${alpha})`
-        : `rgba(148, 163, 184, ${alpha})`;
+        : `rgba(100, 116, 139, ${alpha})`;
       ctx.lineWidth = isIndex ? 1.25 : 0.75;
       ctx.beginPath();
 
@@ -213,8 +213,8 @@ export class ContourBackground {
 
     // Soft radial vignette so center cards stand out crisply
     const grad = ctx.createRadialGradient(w * 0.5, h * 0.5, Math.min(w, h) * 0.15, w * 0.5, h * 0.5, Math.max(w, h) * 0.72);
-    grad.addColorStop(0, 'rgba(11, 14, 19, 0.15)');
-    grad.addColorStop(1, 'rgba(7, 9, 13, 0.78)');
+    grad.addColorStop(0, 'rgba(244, 246, 249, 0.05)');
+    grad.addColorStop(1, 'rgba(226, 232, 240, 0.55)');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, w, h);
   }

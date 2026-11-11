@@ -29,13 +29,10 @@ import {
 import { renderLeaderboardPage, bindLeaderboardEvents } from './page-leaderboard.js';
 import {
   resizeDetailViews,
-  focusDetailCoords,
-  syncDetailQcMarkers,
   openDetailForArchived,
   openDetailForInbox,
   openDetailForLocal,
   enterDetailView,
-  refreshViewsAfterQcClean,
   switchDetailTab,
   openPoiEditor,
   bindDetailEvents
@@ -200,9 +197,6 @@ function registerActions() {
     openDetailForInbox,
     openDetailForLocal,
     enterDetailView,
-    refreshAfterQcClean: refreshViewsAfterQcClean,
-    syncQcMarkers: syncDetailQcMarkers,
-    focusDetailCoords,
     switchDetailTab,
     openPoiEditor,
     removeLocalRoute,

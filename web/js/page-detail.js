@@ -19,23 +19,20 @@ import {
 import { buildRouteAnalysis, ElevationProfileChart } from './elevation-profile.js';
 import { TerrainBlockViewer } from './terrain-block-3d.js';
 import { createBasemapLayer } from './map-layers.js';
-import { getCurrentQcReport, renderGeojsonOnMap, renderQcMarkersOnLayer } from './qc-map-overlay.js';
+import { renderGeojsonOnMap } from './qc-map-overlay.js';
 import { exportCurrentRoute } from './route-export.js';
 import {
   map as categoryMap,
   activeLayerGroup,
-  qcMapLayerGroup,
   getFilteredCategoryRoutes,
   selectInboxItem,
   selectLocalRoute
 } from './page-category.js';
-import { renderDetailQcTab } from './page-detail-qc.js';
 
 let terrainViewer = null;
 let profileChart = null;
 let minimap = null;
 let minimapLayerGroup = null;
-let minimapQcLayerGroup = null;
 let minimapBasemapLayer = null;
 let minimapHoverDot = null;
 let detailAddPoiMode = false;
@@ -46,15 +43,6 @@ export function resizeDetailViews() {
     profileChart?.draw();
     minimap?.invalidateSize({ pan: false });
   });
-}
-
-export function focusDetailCoords(lng, lat) {
-  terrainViewer?.focusLngLat(lng, lat);
-}
-
-export function syncDetailQcMarkers(qc, activeIssueId = null, focusMinimap = false) {
-  renderQcMarkersOnLayer(minimapQcLayerGroup, minimap, qc, activeIssueId, focusMinimap);
-  renderQcMarkersOnLayer(qcMapLayerGroup, categoryMap, qc, activeIssueId, false);
 }
 
 function ensureDetailModules() {
@@ -108,7 +96,6 @@ function ensureDetailModules() {
       zoom: 12
     });
     minimapLayerGroup = L.layerGroup().addTo(minimap);
-    minimapQcLayerGroup = L.layerGroup().addTo(minimap);
     const { layer } = createBasemapLayer('esri-sat', true);
     minimapBasemapLayer = layer.addTo(minimap);
     if (typeof minimapBasemapLayer.bringToBack === 'function') minimapBasemapLayer.bringToBack();
@@ -158,9 +145,6 @@ export async function enterDetailView(entry, fc, isInbox, isLocal) {
   state.currentGeojson = fc;
   state.editingPoiIndex = null;
   state.pendingNewPoiCoords = null;
-  state.qcActiveIssueId = null;
-  state.qcOriginalSnapshot = null;
-  state.currentQc = getCurrentQcReport(fc, entry);
 
   actions.showPage?.('detail');
   ensureDetailModules();
@@ -198,11 +182,9 @@ export async function enterDetailView(entry, fc, isInbox, isLocal) {
   profileChart.setAnalysis(analysis);
 
   renderGeojsonOnMap(minimapLayerGroup, minimap, fc, isInbox ? 'inbox' : (isLocal ? 'local' : entry.category), true, entry._color);
-  renderQcMarkersOnLayer(minimapQcLayerGroup, minimap, state.currentQc, null, false);
   setTimeout(() => minimap?.invalidateSize({ pan: false }), 60);
 
   populateDetailEditForm(entry, isInbox, isLocal);
-  renderDetailQcTab();
 
   await terrainViewer.loadRoute(fc, {
     categoryColor: catColor,
@@ -214,35 +196,6 @@ export async function enterDetailView(entry, fc, isInbox, isLocal) {
     state.currentAnalysis = analysis;
     renderDetailAnalysis(entry, analysis);
     profileChart.setAnalysis(analysis);
-  }
-}
-
-export async function refreshViewsAfterQcClean(nextEntry, nextFc, nextQc) {
-  state.currentEntry = nextEntry;
-  state.currentGeojson = nextFc;
-  state.currentQc = nextQc;
-  state.qcActiveIssueId = null;
-
-  const isInbox = state.selectedMode === 'inbox';
-  const isLocal = state.selectedMode === 'local';
-  const cat = isInbox ? 'inbox' : (isLocal ? 'local' : nextEntry.category);
-  const catColor = nextEntry._color || getCatColor(nextEntry.category);
-
-  const analysis = buildRouteAnalysis(nextFc, terrainViewer?.demLoaded ? (lng, lat) => terrainViewer.sampleElevation(lng, lat) : null);
-  state.currentAnalysis = analysis;
-  renderDetailAnalysis(nextEntry, analysis);
-  profileChart?.setAnalysis(analysis);
-
-  renderGeojsonOnMap(minimapLayerGroup, minimap, nextFc, cat, false, nextEntry._color);
-  renderGeojsonOnMap(activeLayerGroup, categoryMap, nextFc, cat, false, nextEntry._color);
-  syncDetailQcMarkers(nextQc, null, false);
-  renderDetailQcTab();
-
-  if (terrainViewer) {
-    await terrainViewer.loadRoute(nextFc, {
-      categoryColor: catColor,
-      routeName: nextEntry.name || ''
-    });
   }
 }
 
@@ -311,7 +264,7 @@ export function renderDetailAnalysis(entry, analysis) {
     </div>
     <div>
       <div class="stat-section-title">路线信息与备注</div>
-      <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:7px; padding:10px; font-size:12px; line-height:1.6; color:#cbd5e1;">
+      <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:7px; padding:10px; font-size:12px; line-height:1.6; color:#334155;">
         <div><b>适行季节：</b>${escapeHtml(seasonsTxt)}</div>
         ${entry.difficulty ? `<div><b>难度评级：</b>${escapeHtml(entry.difficulty)}</div>` : ''}
         ${entry.notes ? `<div style="margin-top:6px; white-space:pre-wrap;">${escapeHtml(entry.notes)}</div>` : '<div style="margin-top:4px; color:var(--text-muted);">暂无路线备注</div>'}
@@ -367,7 +320,6 @@ export function switchDetailTab(tabName) {
   document.getElementById('dtab-breakdown').style.flexDirection = 'column';
   document.getElementById('dtab-breakdown').style.gap = '14px';
   document.getElementById('dtab-pois').style.display = tabName === 'pois' ? 'flex' : 'none';
-  document.getElementById('dtab-qc').style.display = tabName === 'qc' ? 'flex' : 'none';
   document.getElementById('dtab-edit').style.display = tabName === 'edit' ? 'flex' : 'none';
 }
 
