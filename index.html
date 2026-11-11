@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Outdoor Routes — 户外路线图鉴与标注工作台</title>
   <link rel="stylesheet" href="./web/vendor/leaflet.css" />
+  <link rel="stylesheet" href="./web/vendor/maplibre-gl.css" />
   <link rel="stylesheet" href="./web/css/base.css" />
   <style>
     body { overflow: hidden; }
@@ -55,8 +56,45 @@
       padding: 8px 12px;
       border-bottom: 1px solid var(--border);
       display: flex;
-      gap: 6px;
+      flex-direction: column;
+      gap: 7px;
+    }
+    .hillshade-row {
+      display: flex;
       align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+    .hillshade-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      color: var(--text-main);
+      white-space: nowrap;
+      user-select: none;
+    }
+    .hillshade-toggle input[type="checkbox"] {
+      width: auto;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .hillshade-opacity-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 1;
+      min-width: 90px;
+    }
+    .hillshade-opacity-wrap input[type="range"] {
+      padding: 0;
+      height: 4px;
+      cursor: pointer;
+    }
+    .leaflet-hillshade-pane {
+      mix-blend-mode: multiply;
     }
     .basemap-bar select { flex: 1; }
     .tab-bar {
@@ -412,13 +450,25 @@
 
     <div class="basemap-bar">
       <select id="basemap-select" title="选择地图底图">
-        <option value="opentopomap" selected>⛰️ OpenTopoMap 地形等高线</option>
-        <option value="osm">🗺️ OpenStreetMap 标准</option>
-        <option value="cyclosm">🚴 CyclOSM 骑行与步道</option>
+        <option value="openmap-vector" selected>🗺️ OpenMap 矢量地图 (Liberty)</option>
+        <option value="openmap-bright">🧭 OpenMap 矢量地图 (Bright)</option>
         <option value="esri-sat">🛰️ Esri 卫星影像</option>
-        <option value="gaode-vec">🇨🇳 高德矢量地图 (国内直连)</option>
+        <option value="bing-sat">🛰️ Bing 卫星影像</option>
         <option value="gaode-sat">🛰️ 高德卫星影像 (国内直连)</option>
+        <option value="opentopomap">⛰️ OpenTopoMap 地形等高线</option>
+        <option value="osm">🗺️ OpenStreetMap 标准栅格</option>
+        <option value="gaode-vec">🇨🇳 高德矢量地图 (国内直连)</option>
       </select>
+      <div class="hillshade-row">
+        <label class="hillshade-toggle" title="在任意底图上叠加 Esri World Hillshade 地形山体阴影">
+          <input type="checkbox" id="toggle-hillshade" checked />
+          <span>⛰️ Esri 山体阴影</span>
+        </label>
+        <div class="hillshade-opacity-wrap">
+          <input type="range" id="hillshade-opacity" min="0" max="100" value="45" title="山体阴影透明度" />
+          <span id="hillshade-opacity-val" style="font-family:var(--mono); font-size:10.5px; min-width:30px; text-align:right;">45%</span>
+        </div>
+      </div>
     </div>
 
     <div class="tab-bar workbench-only">
@@ -589,6 +639,8 @@
   </aside>
 
   <script src="./web/vendor/leaflet.js"></script>
+  <script src="./web/vendor/maplibre-gl.js"></script>
+  <script src="./web/vendor/leaflet-maplibre-gl.js"></script>
   <script type="module" src="./web/js/kmls-app.js"></script>
 </body>
 </html>

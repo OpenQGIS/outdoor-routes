@@ -10,43 +10,147 @@ const map = L.map('map', {
 });
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
+const hillshadePane = map.createPane('hillshadePane');
+hillshadePane.style.zIndex = '250';
+hillshadePane.style.pointerEvents = 'none';
+hillshadePane.classList.add('leaflet-hillshade-pane');
+
+function tileToQuadKey(x, y, z) {
+  let quad = '';
+  for (let i = z; i > 0; i--) {
+    let digit = 0;
+    const mask = 1 << (i - 1);
+    if ((x & mask) !== 0) digit += 1;
+    if ((y & mask) !== 0) digit += 2;
+    quad += digit;
+  }
+  return quad;
+}
+
+const BingTileLayer = L.TileLayer.extend({
+  getTileUrl(coords) {
+    const subdomains = this.options.subdomains || ['0', '1', '2', '3'];
+    const idx = Math.abs(coords.x + coords.y) % subdomains.length;
+    const quad = tileToQuadKey(coords.x, coords.y, coords.z);
+    return L.Util.template(this._url, {
+      s: subdomains[idx],
+      q: quad
+    });
+  }
+});
+
 const BASEMAPS = {
+  'openmap-vector': {
+    type: 'vector',
+    style: 'https://tiles.openfreemap.org/styles/liberty',
+    attribution: '&copy; OpenFreeMap / OpenStreetMap'
+  },
+  'openmap-bright': {
+    type: 'vector',
+    style: 'https://tiles.openfreemap.org/styles/bright',
+    attribution: '&copy; OpenFreeMap / OpenStreetMap'
+  },
+  'esri-sat': {
+    type: 'raster',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    options: { maxZoom: 19, attribution: '&copy; Esri World Imagery' }
+  },
+  'bing-sat': {
+    type: 'bing',
+    url: 'https://ecn.t{s}.tiles.virtualearth.net/tiles/a{q}.jpeg?g=14275',
+    options: { subdomains: ['0', '1', '2', '3'], maxZoom: 19, attribution: '&copy; Bing Maps' }
+  },
+  'gaode-sat': {
+    type: 'raster',
+    url: 'https://webst0{s}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}',
+    options: { subdomains: ['1', '2', '3', '4'], maxZoom: 18, attribution: '&copy; 高德影像' }
+  },
   opentopomap: {
+    type: 'raster',
     url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
     options: { maxZoom: 17, attribution: '&copy; OpenTopoMap (CC-BY-SA)' }
   },
   osm: {
+    type: 'raster',
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     options: { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }
   },
-  cyclosm: {
-    url: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
-    options: { maxZoom: 20, attribution: '&copy; CyclOSM / OpenStreetMap' }
-  },
-  'esri-sat': {
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    options: { maxZoom: 19, attribution: '&copy; Esri World Imagery' }
-  },
   'gaode-vec': {
+    type: 'raster',
     url: 'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
     options: { subdomains: ['1', '2', '3', '4'], maxZoom: 18, attribution: '&copy; 高德地图' }
-  },
-  'gaode-sat': {
-    url: 'https://webst0{s}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}',
-    options: { subdomains: ['1', '2', '3', '4'], maxZoom: 18, attribution: '&copy; 高德影像' }
   }
 };
 
 let activeBasemapLayer = null;
+let esriHillshadeLayer = null;
 
 function setBasemap(key, notify = false) {
-  const cfg = BASEMAPS[key] || BASEMAPS.opentopomap;
+  const cfg = BASEMAPS[key] || BASEMAPS.osm;
   if (activeBasemapLayer) {
     map.removeLayer(activeBasemapLayer);
+    activeBasemapLayer = null;
   }
-  activeBasemapLayer = L.tileLayer(cfg.url, cfg.options).addTo(map);
-  activeBasemapLayer.bringToBack();
+
+  if (cfg.type === 'vector') {
+    if (typeof L.maplibreGL === 'function') {
+      activeBasemapLayer = L.maplibreGL({
+        style: cfg.style,
+        pane: 'tilePane',
+        attribution: cfg.attribution
+      }).addTo(map);
+    } else {
+      const fallback = BASEMAPS.osm;
+      activeBasemapLayer = L.tileLayer(fallback.url, fallback.options).addTo(map);
+      showToast('MapLibre GL 未就绪，已回退至 OSM 栅格底图');
+      return;
+    }
+  } else if (cfg.type === 'bing') {
+    activeBasemapLayer = new BingTileLayer(cfg.url, cfg.options).addTo(map);
+  } else {
+    activeBasemapLayer = L.tileLayer(cfg.url, cfg.options).addTo(map);
+  }
+
+  if (typeof activeBasemapLayer.bringToBack === 'function') {
+    activeBasemapLayer.bringToBack();
+  }
   if (notify) showToast('已切换地图底图');
+}
+
+function updateHillshade() {
+  const enabled = Boolean(document.getElementById('toggle-hillshade')?.checked);
+  const opacitySlider = document.getElementById('hillshade-opacity');
+  const opacityPct = Number(opacitySlider?.value ?? 45);
+  const valEl = document.getElementById('hillshade-opacity-val');
+  if (valEl) valEl.textContent = `${opacityPct}%`;
+  if (opacitySlider) opacitySlider.disabled = !enabled;
+
+  if (!enabled) {
+    if (esriHillshadeLayer && map.hasLayer(esriHillshadeLayer)) {
+      map.removeLayer(esriHillshadeLayer);
+    }
+    return;
+  }
+
+  const opacity = Math.max(0, Math.min(1, opacityPct / 100));
+  if (!esriHillshadeLayer) {
+    esriHillshadeLayer = L.tileLayer(
+      'https://services.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}',
+      {
+        pane: 'hillshadePane',
+        maxNativeZoom: 16,
+        maxZoom: 19,
+        opacity,
+        attribution: '&copy; Esri World Hillshade'
+      }
+    );
+  } else {
+    esriHillshadeLayer.setOpacity(opacity);
+  }
+
+  if (!map.hasLayer(esriHillshadeLayer)) {
+    esriHillshadeLayer.addTo(map);
+  }
 }
 
 function showToast(msg) {
@@ -764,6 +868,14 @@ function bindEvents() {
     setBasemap(e.target.value, true);
   });
 
+  document.getElementById('toggle-hillshade').addEventListener('change', () => {
+    updateHillshade();
+  });
+
+  document.getElementById('hillshade-opacity').addEventListener('input', () => {
+    updateHillshade();
+  });
+
   document.querySelectorAll('.tab-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
@@ -960,8 +1072,9 @@ function bindEvents() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  const initBasemap = document.getElementById('basemap-select')?.value || 'opentopomap';
+  const initBasemap = document.getElementById('basemap-select')?.value || 'openmap-vector';
   setBasemap(initBasemap, false);
+  updateHillshade();
   bindEvents();
   try {
     await loadCatalogAndInbox();
